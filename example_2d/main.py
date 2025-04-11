@@ -80,10 +80,8 @@ class ScaledNCPModel(
     ScaledRadialReturnModel,
 ): ...
 
-class NCPModel(
-    ncp.UnscaledContact,
-    ScaledNCPModel
-): ...
+
+class NCPModel(ncp.UnscaledContact, ScaledNCPModel): ...
 
 
 def generate_case_name(
@@ -255,12 +253,26 @@ if __name__ == "__main__":
     # Use open state tolerance model parameters according to user input
     characteristic_contact_traction = (
         injection_schedule["reference_pressure"]
-        if mode in ["rr-nonlinear", "rr-linear", "ncp-min-scaled", "ncp-fb-scaled", "ncp-fb-full-scaled"]
+        if mode
+        in [
+            "rr-nonlinear",
+            "rr-linear",
+            "ncp-min-scaled",
+            "ncp-fb-scaled",
+            "ncp-fb-full-scaled",
+        ]
         else 1.0
     )
     open_state_tolerance = (
         tol
-        if mode in ["rr-nonlinear", "rr-linear", "ncp-min-scaled", "ncp-fb-scaled", "ncp-fb-full-scaled"]
+        if mode
+        in [
+            "rr-nonlinear",
+            "rr-linear",
+            "ncp-min-scaled",
+            "ncp-fb-scaled",
+            "ncp-fb-full-scaled",
+        ]
         else tol * injection_schedule["reference_pressure"]
     )
     numerics_parameters.update(
@@ -320,7 +332,7 @@ if __name__ == "__main__":
     if no_intersections:
 
         class ScaledNCPModel(GeometryFromFile_SingleFracs, ScaledNCPModel): ...
-        
+
         class NCPModel(GeometryFromFile_SingleFracs, NCPModel): ...
 
         class ScaledRadialReturnModel(
