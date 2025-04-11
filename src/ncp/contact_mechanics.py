@@ -360,7 +360,8 @@ class NCPTangentialContact2d:
         """
 
         characteristic_distance = self.characteristic_jump(subdomains)
-        val = self.cnum_t(subdomains) / characteristic_distance
+        # val = self.cnum_t(subdomains) / characteristic_distance
+        val = self.cnum(subdomains) / characteristic_distance
         return val
 
     def tangential_fracture_deformation_equation(
