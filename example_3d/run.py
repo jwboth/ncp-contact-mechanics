@@ -13,13 +13,21 @@ formulations = [
     "rr-nonlinear",
     "rr-linear",
     "ncp-min",
+    "ncp-min-scaled",
+    "ncp-fb-full",
+    "ncp-fb-full-scaled",
 ]
 
+mass_units = [1e0, 1e6, 1e10]
+
 for formulation in formulations:
-    instructions = [
-        sys.executable,
-        "main.py",
-        "--formulation",
-        formulation,
-    ]
-    subprocess.run(instructions)
+    for mass_unit in mass_units:
+        instructions = [
+            sys.executable,
+            "main.py",
+            "--formulation",
+            formulation,
+            "--mass-unit",
+            str(mass_unit),
+        ]
+        subprocess.run(instructions)
