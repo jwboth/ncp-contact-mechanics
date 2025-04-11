@@ -4,6 +4,7 @@ import argparse
 import logging
 import time
 from pathlib import Path
+import numpy as np
 
 import porepy as pp
 from porepy.numerics.nonlinear import line_search
@@ -67,13 +68,15 @@ class NCPModel(ncp.UnscaledContact, ScaledNCPModel): ...
 
 
 def generate_case_name(
-    num_fractures, formulation, linearization, relaxation, linear_solver
+    num_fractures, formulation, linearization, relaxation, linear_solver, mass_unit
 ):
     folder = Path(f"simple_bedretto_{num_fractures}")
     name = f"{formulation.lower()}_{linearization.lower()}"
     if relaxation.lower() != "none":
         name += f"_{relaxation.lower()}"
     name += f"_{linear_solver.lower()}"
+    if not np.isclose(mass_unit, 1e0):
+        name += f"_{mass_unit:.0e}"
     return folder / name
 
 
@@ -114,6 +117,12 @@ if __name__ == "__main__":
         default=6,
         help="Number of fractures (1-6 [default]).",
     )
+    parser.add_argument(
+        "--mass-unit",
+        type=float,
+        default=1e0,
+        help="Mass unit (1e0 [default], 1e6, 1e14).",
+    )
     args = parser.parse_args()
 
     # Model parameters
@@ -135,7 +144,7 @@ if __name__ == "__main__":
             "numerical": pp.NumericalConstants(**numerics_parameters),
         },
         # User-defined units
-        "units": pp.Units(kg=1e10, m=1, s=1, rad=1),
+        "units": pp.Units(kg=args.mass_unit, m=1, s=1, rad=1),
         # Numerics
         "solver_statistics_file_name": "solver_statistics.json",
         "export_constants_separately": False,
@@ -148,18 +157,23 @@ if __name__ == "__main__":
             args.linearization,
             args.relaxation,
             args.linear_solver,
+            args.mass_unit,
         ),
         "nonlinear_solver_statistics": AdvancedSolverStatistics,
     }
 
     # Update the numerical parameter if unscaled formulation is used
     if args.formulation.lower() in ["ncp-min", "ncp-fb", "ncp-fb-full"]:
-        model_params["material_constants"]["numerical"].update(
+        updated_numerics_parameters = numerics_parameters.copy()
+        updated_numerics_parameters.update(
             {
                 "open_state_tolerance": 1e-10
                 * injection_schedule["reference_pressure"],
                 "characteristic_contact_traction": 1.0,
             }
+        )
+        model_params["material_constants"]["numerical"] = pp.NumericalConstants(
+            **updated_numerics_parameters
         )
 
     # Solver parameters
@@ -190,26 +204,44 @@ if __name__ == "__main__":
 
         case "ncp-min":
             model_params["ncp_type"] = "min"
+            model_params["stick_slip_regularization"] = (
+                "origin_and_stick_slip_transition"
+            )
             Model = NCPModel
 
         case "ncp-fb":
             model_params["ncp_type"] = "fb"
+            model_params["stick_slip_regularization"] = (
+                "origin_and_stick_slip_transition"
+            )
             Model = NCPModel
 
         case "ncp-fb-full":
             model_params["ncp_type"] = "fb-full"
+            model_params["stick_slip_regularization"] = (
+                "origin_and_stick_slip_transition"
+            )
             Model = NCPModel
 
         case "ncp-min-scaled":
             model_params["ncp_type"] = "min"
+            model_params["stick_slip_regularization"] = (
+                "origin_and_stick_slip_transition"
+            )
             Model = ScaledNCPModel
 
         case "ncp-fb-scaled":
             model_params["ncp_type"] = "fb"
+            model_params["stick_slip_regularization"] = (
+                "origin_and_stick_slip_transition"
+            )
             Model = ScaledNCPModel
 
         case "ncp-fb-full-scaled":
             model_params["ncp_type"] = "fb-full"
+            model_params["stick_slip_regularization"] = (
+                "origin_and_stick_slip_transition"
+            )
             Model = ScaledNCPModel
 
         case _:
