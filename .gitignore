@@ -172,3 +172,15 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Meshes
+*.msh
+*.geo_unrolled
+
+# Simulation outputs
+*.pvd
+*.vtu
+solver_statistics.json
+times.json
+
+
