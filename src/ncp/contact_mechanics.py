@@ -59,6 +59,23 @@ class UnscaledContact:
         val.set_name("Contact_mechanics_numerical_constant")
         return val
 
+    def contact_mechanics_numerical_constant_t(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Scalar:
+        """Numerical constant for the contact problem [m^-1].
+
+        As the normal contact, but without the shear modulus.
+
+        """
+
+        # TODO: Which characteristic distance to use?
+
+        # characteristic_distance = self.characteristic_jump(subdomains)
+        characteristic_distance = self.characteristic_displacement(subdomains)
+        # val = self.cnum_t(subdomains) / characteristic_distance
+        val = self.cnum(subdomains) / characteristic_distance
+        return val
+
 
 class ScaledContact:
     def characteristic_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -68,42 +85,55 @@ class ScaledContact:
 
         """
         return pp.ad.Scalar(self.solid.residual_aperture + self.solid.fracture_gap)
-        # Attempt to use adaptive scaling
-        # nd_vec_to_normal = self.normal_component(subdomains)
-        # u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
-        # return self.solid.residual_aperture() + u_n.previous_iteration()
 
-    def contact_mechanics_numerical_constant(
+    # TODO: Is there a difference between this and the super().contact_mechanics_numerical_constant?
+
+    # def contact_mechanics_numerical_constant(
+    #    self, subdomains: list[pp.Grid]
+    # ) -> pp.ad.Scalar:
+    #    """Numerical constant for the contact problem [Pa * m^-1].
+
+    #    A physical interpretation of this constant is as an elastic modulus for the
+    #    fracture, as it appears as a scaling of displacement jumps when comparing to
+    #    contact tractions.
+
+    #    Parameters:
+    #        subdomains: List of subdomains. Only the first is used.
+
+    #    Returns:
+    #        c_num: Numerical constant, as scalar.
+
+    #    """
+    #    # The constant works as a scaling factor in the comparison between tractions and
+    #    # displacement jumps across fractures. In analogy with Hooke's law, the scaling
+    #    # constant is therefore proportional to the shear modulus and the inverse of a
+    #    # characteristic length of the fracture, where the latter has the interpretation
+    #    # of a gradient length.
+    #    cnum = self.cnum(subdomains)
+    #    youngs_modulus = self.youngs_modulus(subdomains)
+    #    size = pp.ad.Scalar(np.max(self.domain.side_lengths()))
+    #    val = (
+    #        cnum
+    #        * youngs_modulus
+    #        / size
+    #        / self.characteristic_contact_traction(subdomains)
+    #    )
+    #    val.set_name("Contact_mechanics_numerical_constant")
+    #    return val
+
+    def contact_mechanics_numerical_constant_t(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Scalar:
-        """Numerical constant for the contact problem [Pa * m^-1].
+        """Numerical constant for the contact problem [m^-1].
 
-        A physical interpretation of this constant is as an elastic modulus for the
-        fracture, as it appears as a scaling of displacement jumps when comparing to
-        contact tractions.
-
-        Parameters:
-            subdomains: List of subdomains. Only the first is used.
-
-        Returns:
-            c_num: Numerical constant, as scalar.
+        As the normal contact, but without the shear modulus.
 
         """
-        # The constant works as a scaling factor in the comparison between tractions and
-        # displacement jumps across fractures. In analogy with Hooke's law, the scaling
-        # constant is therefore proportional to the shear modulus and the inverse of a
-        # characteristic length of the fracture, where the latter has the interpretation
-        # of a gradient length.
-        cnum = self.cnum(subdomains)
-        youngs_modulus = self.youngs_modulus(subdomains)
-        size = pp.ad.Scalar(np.max(self.domain.side_lengths()))
-        val = (
-            cnum
-            * youngs_modulus
-            / size
-            / self.characteristic_contact_traction(subdomains)
-        )
-        val.set_name("Contact_mechanics_numerical_constant")
+
+        # characteristic_distance = self.characteristic_jump(subdomains)
+        characteristic_distance = self.characteristic_displacement(subdomains)
+        # val = self.cnum_t(subdomains) / characteristic_distance
+        val = self.cnum(subdomains) / characteristic_distance
         return val
 
 
@@ -349,20 +379,6 @@ class NCPTangentialContact2d:
     #    return pp.ad.Scalar(
     #        val, name="Contact_mechanics_numerical_constant_tangential_ncp"
     #    )
-
-    def contact_mechanics_numerical_constant_t(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Scalar:
-        """Numerical constant for the contact problem [m^-1].
-
-        As the normal contact, but without the shear modulus.
-
-        """
-
-        characteristic_distance = self.characteristic_jump(subdomains)
-        # val = self.cnum_t(subdomains) / characteristic_distance
-        val = self.cnum(subdomains) / characteristic_distance
-        return val
 
     def tangential_fracture_deformation_equation(
         self, subdomains: list[pp.Grid]
