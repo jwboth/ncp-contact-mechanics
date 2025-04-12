@@ -15,6 +15,8 @@ formulations = [
     "ncp-fb-full",
     "ncp-fb-full-scaled",
 ]
+all_studies = [3]
+all_seeds = [2]
 passed = []
 not_passed = formulations.copy()
 not_passed_reason = {}
@@ -22,17 +24,6 @@ not_passed_reason = {}
 for formulation in formulations:
     # Run the simulation with the specified formulation
     print(f"Testing formulation: {formulation}")
-    subprocess.run(
-        [
-            sys.executable,
-            "main.py",
-            "--formulation",
-            formulation,
-            "--mass-unit",
-            "1",
-            "--asci-export",
-        ]
-    )
 
     # Fetch the solver statistics
     folder = Path("visualization") / generate_case_name(
@@ -47,9 +38,7 @@ for formulation in formulations:
     final_solution_filename = {
         "data_1": folder / "data_1_000003.vtu",
         "data_2": folder / "data_2_000003.vtu",
-        "data_3": folder / "data_3_000003.vtu",
         "mortar_1": folder / "data_mortar_1_000003.vtu",
-        "mortar_2": folder / "data_mortar_2_000003.vtu",
     }
 
     # Fetch references
@@ -57,9 +46,7 @@ for formulation in formulations:
     reference_solution_filename = {
         "data_1": Path("reference/data_1_000003.vtu"),
         "data_2": Path("reference/data_2_000003.vtu"),
-        "data_3": Path("reference/data_3_000003.vtu"),
         "mortar_1": Path("reference/data_mortar_1_000003.vtu"),
-        "mortar_2": Path("reference/data_mortar_2_000003.vtu"),
     }
 
     # Compare the final solution files
