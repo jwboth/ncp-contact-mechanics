@@ -5,7 +5,17 @@ from deepdiff import DeepDiff
 import json
 
 # Test different formulations
-for formulation in ["ncp-min-scaled", "ncp-fb-scaled", "rr-linear", "rr-nonlinear"]:
+formulations = [
+    "rr-nonlinear",
+    "rr-linear",
+    "ncp-min",
+    "ncp-min-scaled",
+    "ncp-fb-full",
+    "ncp-fb-full-scaled",
+]
+passed = []
+not_passed = formulations.copy()
+for formulation in formulations:
     # Run the simulation with the specified formulation
     print(f"Testing formulation: {formulation}")
     subprocess.run(
@@ -72,4 +82,10 @@ for formulation in ["ncp-min-scaled", "ncp-fb-scaled", "rr-linear", "rr-nonlinea
             f"Files {final_solution_filename[key]} and {reference_solution_filename[key]} differ: {diff}"
         )
 
-print("All tests passed!")
+    print("All tests passed for formulation:", formulation)
+    passed.append(formulation)
+    not_passed.remove(formulation)
+
+# Print the results
+print("Passed formulations:", passed)
+print("Not passed formulations:", not_passed)
