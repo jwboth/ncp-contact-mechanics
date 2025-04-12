@@ -182,5 +182,5 @@ cython_debug/
 *.vtu
 solver_statistics.json
 times.json
-
-
+*.out
+*.txt
