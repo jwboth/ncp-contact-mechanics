@@ -405,6 +405,11 @@ class LogPerformanceDataVectorial(LogPerformanceData):
 
             return converged, diverged
 
+        # Contact state changes
+        total_contact_state_changes = (
+            self.nonlinear_solver_statistics.total_contact_state_changes
+        )
+
         # Increment based norm
         nonlinear_increment_norms = self.compute_nonlinear_increment_norm(
             nonlinear_increment,
@@ -470,6 +475,10 @@ class LogPerformanceDataVectorial(LogPerformanceData):
             f"""Time simulated: {self.time_manager.time / self.time_manager.time_final * 100} %"""
         )
         logger.info(
+            """Contact state changes: """
+            f"""{total_contact_state_changes}."""
+        )
+        logger.info(
             """Nonlinear abs.|rel. increment norm: """
             f"""{(np.max(nonlinear_increment_norms)):.2e} | """
             f"""{(np.max(relative_increment_norms)):.2e}"""
@@ -482,6 +491,11 @@ class LogPerformanceDataVectorial(LogPerformanceData):
 
         # Start convergence checks
         converged = False
+        diverged = False
+
+        # Require stagantion in contact states.
+        if total_contact_state_changes > 0:
+            return converged, diverged
 
         # Check convergence requiring both the increment and residual to be small.
         if not converged and self.nonlinear_solver_statistics.num_iteration > 1:
