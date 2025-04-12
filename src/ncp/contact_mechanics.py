@@ -290,6 +290,8 @@ class AuxiliaryContact:
 
     def alignment(self, subdomains: list[pp.Grid]):
         """det(t_t, u_t_increment)."""
+        if self.nd == 2:
+            return pp.ad.Scalar(0.0)
         assert self.nd == 3, "Only implemented for 3d"
 
         # The tangential component of the contact traction and the displacement jump
@@ -860,53 +862,16 @@ class NCPTangentialContact2d:
             case _:
                 assert False, f"Unknown complementary_approach: {regularization}"
 
-        if self.nd == 2:
-            # Semi-smooth approach:
-            # Open: set t_t = 0, use a discontinuous function to switch between open and closed
-            # Stick/slip: continuous ncp approach
-            # Singular: add regulzarization in u_t_increment
-            equation: pp.ad.Operator = (
-                characteristic_open * t_t
-                + characteristic_stick * stick_equation
-                + characteristic_slip * slip_equation
-                + _characteristic_singular
-                * (c_num_to_traction @ (u_t - u_t.previous_iteration()))
-            )
-
-        else:
-            e_0 = tangential_basis[0]
-            e_1 = tangential_basis[1]
-            equation: pp.ad.Operator = (
-                # characteristic_open * t_t
-                # + characteristic_stick * u_t_increment
-                # + characteristic_slip * (e_0 @ slip_equation)
-                # + characteristic_slip * (e_1 @ self.alignment(subdomains))
-                # + _characteristic_singular * (u_t - u_t.previous_iteration())
-                characteristic_open * t_t
-                + characteristic_stick * (e_0 @ stick_equation)
-                + characteristic_slip * (e_0 @ slip_equation)
-                + characteristic_closed * (e_1 @ self.alignment(subdomains))
-                + _characteristic_singular * (u_t - u_t.previous_iteration())
-            )
-
-        # TODO remove
-        # elif complementary_approach == "active_set":
-        #     # Active set type approach - not semi-smooth:
-        #     # Open: set t_t = 0
-        #     # Stick: set u_t = 0
-        #     # Slip: apply ncp approach
-        #     if self.nd == 2:
-        #         kkt_equation = slip_equation
-        #     elif self.nd == 3:
-        #         alignment = self.alignment(subdomains)
-        #         e_0 = tangential_basis[0]
-        #         e_1 = tangential_basis[1]
-        #         kkt_equation = e_0 @ slip_equation + e_1 @ alignment
-        #     equation: pp.ad.Operator = (
-        #         characteristic_open * t_t
-        #         + characteristic_stick * (c_num_to_traction @ u_t_increment)
-        #         + characteristic_slip * kkt_equation
-        #     )
+        e_0 = tangential_basis[0]
+        e_1 = tangential_basis[-1]
+        equation: pp.ad.Operator = (
+            characteristic_open * t_t
+            + characteristic_stick * (e_0 @ stick_equation)
+            + characteristic_slip * (e_0 @ slip_equation)
+            + characteristic_closed * (e_1 @ self.alignment(subdomains))
+            + _characteristic_singular * (u_t - u_t.previous_iteration())
+            # * (c_num_to_traction @ (u_t - u_t.previous_iteration()))
+        )
 
         equation.set_name("tangential_fracture_deformation_equation")
         return equation
