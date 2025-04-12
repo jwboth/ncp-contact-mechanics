@@ -32,9 +32,6 @@ class AdaptiveDarcysLawAd:  # (pp.constitutive_laws.DarcysLawAd):
             self.equation_system
         )[0]
 
-        # ic(no_contact_states_changes)
-        # print(super().darcy_flux_discretization(subdomains))
-
         if all([sd.dim < self.nd for sd in subdomains]) and np.isclose(
             no_contact_states_changes, 1
         ):
