@@ -404,7 +404,14 @@ class PressureConstraintWell:
         current_injection_pressure = pp.ad.TimeDependentDenseArray(
             "current_injection_pressure", [self.mdg.subdomains()[0]]
         )
-        constrained_eq = self.pressure(subdomains) - current_injection_pressure
+        hydrostatic_pressure = pp.ad.TimeDependentDenseArray(
+            "hydrostatic_pressure", subdomains
+        )
+        constrained_eq = (
+            self.pressure(subdomains)
+            - current_injection_pressure
+            - hydrostatic_pressure
+        )
 
         eq_with_pressure_constraint = (
             pp.ad.DenseArray(reverse_indicator) * std_eq
