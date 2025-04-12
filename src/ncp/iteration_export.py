@@ -342,17 +342,15 @@ class IterationExporting:
                     (sd, "orthogonality", orthogonality.value(self.equation_system))
                 )
                 if self.nd == 3:
-                    alignment = self.alignment_3d([sd])
+                    alignment = self.alignment([sd])
                     data.append(
                         (sd, "alignment", alignment.value(self.equation_system))
                     )
+
             except:
                 ...
 
             # Append data
-            data.append(
-                (sd, "b", self.friction_bound([sd]).value(self.equation_system))
-            )
             data.append((sd, "u_n", u_n.value(self.equation_system)))
             data.append((sd, "u_t", u_t.value(self.equation_system)))
             data.append(
