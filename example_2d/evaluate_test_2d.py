@@ -33,46 +33,6 @@ for formulation in formulations:
     # Run the simulation with the specified formulation
     print(f"Testing formulation: {formulation}")
     ad_mode, mode, aa, regularization = formulation
-    instructions = [
-        sys.executable,
-        "main.py",
-        "--study",
-        "3",
-        "--ad-mode",
-        ad_mode,
-        "--mode",
-        mode,
-        "--linear-solver",
-        "scipy_sparse",
-        "--aa",
-        str(aa),
-        "--regularization",
-        regularization,
-        "--tol",
-        str(1e-10),
-        "--cn",
-        str(1.0),
-        "--ct",
-        str(1.0),
-        "--unitary_units",
-        str(True),
-        "--seed",
-        str(4),
-        "--no_intersections",
-        str(True),
-        "--no_intersections_angle_cutoff",
-        str(0.0),
-        "--mesh_size",
-        str(10),
-        "--output",
-        "visualization",
-        "--num_time_steps",
-        str(3),
-        "--num_iter",
-        str(200),
-        "--asci-export"
-    ]
-    subprocess.run(instructions)
 
     # Fetch the solver statistics
     folder = Path("visualization") / generate_case_name(
