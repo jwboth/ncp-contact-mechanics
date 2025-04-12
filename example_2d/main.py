@@ -27,7 +27,11 @@ from setups.physics import (
     numerics_parameters,
     solid_parameters,
 )
-from setups.statistics import AdvancedSolverStatistics, LogPerformanceDataVectorial
+from setups.statistics import (
+    AdvancedSolverStatistics,
+    LogPerformanceDataVectorial,
+    ASCIExport,
+)
 
 import ncp
 
@@ -140,7 +144,7 @@ if __name__ == "__main__":
         "--num_time_steps", type=int, default=5, help="Number of time steps."
     )
     parser.add_argument(
-        "--num_iter", type=int, default=20, help="Number of nonlinear iterations."
+        "--num_iter", type=int, default=200, help="Number of nonlinear iterations."
     )
     parser.add_argument("--ad-mode", type=str, default="newton", help="AD mode.")
     parser.add_argument("--mode", type=str, default="ncp-min", help="Method to use.")
@@ -183,6 +187,9 @@ if __name__ == "__main__":
     parser.add_argument("--mesh_size", type=float, default=10, help="Mesh size.")
     parser.add_argument(
         "--output", type=str, default="visualization", help="base output folder"
+    )
+    parser.add_argument(
+        "--asci-export", action="store_true", help="Export data in ASCII format."
     )
     args = parser.parse_args()
 
@@ -328,6 +335,18 @@ if __name__ == "__main__":
         "nl_convergence_tol_res_tight": 1e-10,
         "nl_convergence_tol_res_rel_tight": 1e-10,
     }
+
+    if args.asci_export:
+
+        class ScaledRadialReturnModel(ASCIExport, ScaledRadialReturnModel): ...
+
+        class NCPModel(ASCIExport, NCPModel): ...
+
+        class ScaledNCPModel(ASCIExport, ScaledNCPModel): ...
+
+        class ScaledLinearRadialReturnModel(
+            ASCIExport, ScaledLinearRadialReturnModel
+        ): ...
 
     if no_intersections:
 

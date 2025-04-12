@@ -8,8 +8,35 @@ import logging
 from typing import Any
 import time
 import warnings
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+
+class ASCIExport:
+    def initialize_data_saving(self) -> None:
+        """Initialize data saving.
+
+        This method is called by
+        :meth:`~porepy.models.solution_strategy.SolutionStrategy.prepare_simulation` to
+        initialize the exporter, and any other data saving functionality
+        (e.g., empty data containers to be appended in :meth:`save_data_time_step`).
+
+        In addition, it sets the path for storing solver statistics data to file for
+        each time step.
+
+        """
+        super().initialize_data_saving()
+        self.exporter = pp.Exporter(
+            self.mdg,
+            self.params["file_name"],
+            folder_name=self.params["folder_name"],
+            export_constants_separately=self.params.get(
+                "export_constants_separately", False
+            ),
+            length_scale=self.units.m,
+            binary=False,
+        )
 
 
 class LogPerformanceData:

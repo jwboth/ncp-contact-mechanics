@@ -22,7 +22,11 @@ from setups.physics import (
     solid_parameters,
     injection_schedule,
 )
-from setups.statistics import AdvancedSolverStatistics, LogPerformanceDataVectorial
+from setups.statistics import (
+    AdvancedSolverStatistics,
+    LogPerformanceDataVectorial,
+    ASCIExport,
+)
 import ncp
 
 # from common.newton_return_map import NewtonReturnMap
@@ -122,6 +126,11 @@ if __name__ == "__main__":
         type=float,
         default=1e0,
         help="Mass unit (1e0 [default], 1e6, 1e14).",
+    )
+    parser.add_argument(
+        "--asci-export",
+        action="store_true",
+        help="Export results in ascii format.",
     )
     args = parser.parse_args()
 
@@ -340,6 +349,15 @@ if __name__ == "__main__":
 
         case _:
             raise ValueError(f"Linear solver {args.linear_solver} not recognized.")
+
+    # Choose ascii export
+    if args.asci_export:
+
+        class Model(
+            ASCIExport,
+            Model,
+        ):
+            """Add ascii export."""
 
     # Run the model
     model = Model(model_params)
