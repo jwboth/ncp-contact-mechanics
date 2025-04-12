@@ -80,7 +80,7 @@ for formulation in formulations:
         cn=1.0,
         ct=1.0,
         tol=1e-10,
-        aa_depth=0,
+        aa=0,
         regularization=regularization,
         mode=mode,
         ad_mode=ad_mode,
@@ -107,41 +107,48 @@ for formulation in formulations:
         "mortar_1": Path("reference/data_mortar_1_000003.vtu"),
     }
 
-    # Compare the solver statistics in terms of number of iterations
-    # - NOTE this comparison only makes sense when using the same method!
-    if formulation == "ncp-min-scaled":
-        solver_statistics = json.loads(solver_statistics_filename.read_text())
-        reference_statistics = json.loads(reference_statistics_filename.read_text())
-        for time_index in ["1", "2", "3"]:
-            assert (
-                solver_statistics[time_index]["status"]
-                == reference_statistics[time_index]["status"]
-            ), f"Solver status mismatch at time index {time_index}"
-            assert (
-                solver_statistics[time_index]["num_iteration"]
-                == reference_statistics[time_index]["num_iteration"]
-            ), f"Solver iterations mismatch at time index {time_index}"
-            assert (
-                solver_statistics[time_index]["residual_norms"]
-                == reference_statistics[time_index]["residual_norms"]
-            ), f"Solver residual norms mismatch at time index {time_index}"
+    try:
+        # Compare the solver statistics in terms of number of iterations
+        # - NOTE this comparison only makes sense when using the same method!
+        if formulation == "ncp-min-scaled":
+            solver_statistics = json.loads(solver_statistics_filename.read_text())
+            reference_statistics = json.loads(reference_statistics_filename.read_text())
+            for time_index in ["1", "2", "3"]:
+                assert (
+                    solver_statistics[time_index]["status"]
+                    == reference_statistics[time_index]["status"]
+                ), f"Solver status mismatch at time index {time_index}"
+                assert (
+                    solver_statistics[time_index]["num_iteration"]
+                    == reference_statistics[time_index]["num_iteration"]
+                ), f"Solver iterations mismatch at time index {time_index}"
+                assert (
+                    solver_statistics[time_index]["residual_norms"]
+                    == reference_statistics[time_index]["residual_norms"]
+                ), f"Solver residual norms mismatch at time index {time_index}"
 
-    # Compare the final solution files
-    for key in final_solution_filename.keys():
-        # Compare the files
-        diff = DeepDiff(
-            final_solution_filename[key].read_text(),
-            reference_solution_filename[key].read_text(),
-            ignore_order=True,
-        )
-        # Check if there are any differences
-        assert not diff, (
-            f"Files {final_solution_filename[key]} and {reference_solution_filename[key]} differ: {diff}"
-        )
+        # Compare the final solution files
+        for key in final_solution_filename.keys():
+            # Compare the files
+            diff = DeepDiff(
+                final_solution_filename[key].read_text(),
+                reference_solution_filename[key].read_text(),
+                ignore_order=True,
+            )
+            # Check if there are any differences
+            assert not diff, (
+                f"Files {final_solution_filename[key]} and {reference_solution_filename[key]} differ: {diff}"
+            )
 
-    print("All tests passed for formulation:", formulation)
-    passed.append(formulation)
-    not_passed.remove(formulation)
+        print("All tests passed for formulation:", formulation)
+        passed.append(formulation)
+        not_passed.remove(formulation)
+    except AssertionError as e:
+        print(f"Test failed for formulation {formulation}: {e}")
+    except FileNotFoundError as e:
+        print(f"File not found for formulation {formulation}: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred for formulation {formulation}: {e}")
 
 # Print the results
 print("Passed formulations:", passed)
