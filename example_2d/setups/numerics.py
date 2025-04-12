@@ -235,7 +235,7 @@ class AdaptiveCnum:
         """Add update of cnum."""
         super().update_time_dependent_ad_arrays()
         self.update_cnum()
-        self.update_cnum_t()
+        # self.update_cnum_t()
 
 
 class RegularizedStart:
