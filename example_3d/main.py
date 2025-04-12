@@ -172,7 +172,13 @@ if __name__ == "__main__":
     }
 
     # Update the numerical parameter if unscaled formulation is used
-    if args.formulation.lower() in ["ncp-min", "ncp-fb", "ncp-fb-full"]:
+    if args.formulation.lower() in [
+        "ncp-min",
+        "ncp-fb",
+        "ncp-fb-full",
+        "rr-nonlinear-unscaled",
+        "rr-linear-unscaled",
+    ]:
         updated_numerics_parameters = numerics_parameters.copy()
         updated_numerics_parameters.update(
             {
@@ -208,7 +214,13 @@ if __name__ == "__main__":
         case "rr-nonlinear":
             Model = NonlinearRadialReturnModel
 
+        case "rr-nonlinear-unscaled":
+            Model = NonlinearRadialReturnModel
+
         case "rr-linear":
+            Model = LinearRadialReturnModel
+
+        case "rr-linear-unscaled":
             Model = LinearRadialReturnModel
 
         case "ncp-min":
