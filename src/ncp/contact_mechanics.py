@@ -291,7 +291,8 @@ class AuxiliaryContact:
     def alignment(self, subdomains: list[pp.Grid]):
         """det(t_t, u_t_increment)."""
         if self.nd == 2:
-            return pp.ad.Scalar(0.0)
+            num_cells = sum([sd.num_cells for sd in subdomains])
+            return pp.ad.DenseArray(np.zeros(num_cells))
         assert self.nd == 3, "Only implemented for 3d"
 
         # The tangential component of the contact traction and the displacement jump
