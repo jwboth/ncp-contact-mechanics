@@ -10,8 +10,6 @@ import argparse
 import time
 
 parser = argparse.ArgumentParser(description="Run single fracture test cases.")
-parser.add_argument("-o", "--option", type=str, default="all", help="Option to run.")
-parser.add_argument("-only-new", "--only-new", action="store_true", help="Only new.")
 parser.add_argument("-dry", "--dry", action="store_true", help="Only dry run.")
 parser.add_argument(
     "-c", "--cache", type=str, default="cache", help="cache for parallel runs."
@@ -55,8 +53,8 @@ formulations = [
     ("newton", "ncp-fb-scaled", 0, "origin_and_stick_slip_transition"),
     ("newton", "ncp-fb-full-scaled", 0, "origin_and_stick_slip_transition"),
 ]
-all_studies = [3]
-all_seeds = [2]
+study = 2
+seed = 4
 passed = []
 not_passed = formulations.copy()
 not_passed_reason = {}
@@ -71,7 +69,7 @@ for formulation in formulations:
         sys.executable,
         "main.py",
         "--study",
-        "3",
+        str(study),
         "--ad-mode",
         ad_mode,
         "--mode",
@@ -91,7 +89,7 @@ for formulation in formulations:
         "--unitary_units",
         str(True),
         "--seed",
-        str(4),
+        str(seed),
         "--no_intersections",
         str(True),
         "--no_intersections_angle_cutoff",

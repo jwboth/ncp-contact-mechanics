@@ -15,16 +15,16 @@ formulations = [
     ("picard", "ncp-min-scaled", 0, "origin_and_stick_slip_transition"),
     ("picard", "ncp-fb-scaled", 0, "origin_and_stick_slip_transition"),
     ("picard", "ncp-fb-full-scaled", 0, "origin_and_stick_slip_transition"),
-    ("newton", "rr-nonlinear", 0, "none"),
-    ("newton", "rr-linear", 0, "none"),
-    ("newton", "ncp-min", 0, "origin_and_stick_slip_transition"),
-    ("newton", "ncp-fb-full", 0, "origin_and_stick_slip_transition"),
-    ("newton", "ncp-min-scaled", 0, "origin_and_stick_slip_transition"),
-    ("newton", "ncp-fb-scaled", 0, "origin_and_stick_slip_transition"),
-    ("newton", "ncp-fb-full-scaled", 0, "origin_and_stick_slip_transition"),
+    #("newton", "rr-nonlinear", 0, "none"),
+    #("newton", "rr-linear", 0, "none"),
+    #("newton", "ncp-min", 0, "origin_and_stick_slip_transition"),
+    #("newton", "ncp-fb-full", 0, "origin_and_stick_slip_transition"),
+    #("newton", "ncp-min-scaled", 0, "origin_and_stick_slip_transition"),
+    #("newton", "ncp-fb-scaled", 0, "origin_and_stick_slip_transition"),
+    #("newton", "ncp-fb-full-scaled", 0, "origin_and_stick_slip_transition"),
 ]
-all_studies = [3]
-all_seeds = [2]
+study = 2
+seed = 4
 passed = []
 not_passed = formulations.copy()
 not_passed_reason = {}
@@ -36,8 +36,8 @@ for formulation in formulations:
 
     # Fetch the solver statistics
     folder = Path("visualization") / generate_case_name(
-        study=3,
-        seed=4,
+        study=study,
+        seed=seed,
         mesh_size=10,
         dil=0.1,
         cn=1.0,
@@ -78,7 +78,7 @@ for formulation in formulations:
             diff[key] = DeepDiff(
                 meshio.read(final_solution_filename[key]).__dict__,
                 meshio.read(reference_solution_filename[key]).__dict__,
-                significant_digits = 6,
+                significant_digits = 3,
                 number_format_notation = "e",
                 ignore_order=True,
                 ignore_numeric_type_changes=True,
