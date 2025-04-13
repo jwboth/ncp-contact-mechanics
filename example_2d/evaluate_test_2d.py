@@ -1,10 +1,19 @@
-import subprocess
-import sys
 from pathlib import Path
 from deepdiff import DeepDiff
 import json
 from main import generate_case_name
 import meshio
+from icecream import ic
+import argparse
+
+argparser = argparse.ArgumentParser(description="Run single fracture test cases.")
+argparser.add_argument(
+    "-verbose",
+    action="store_true",
+    help="Print detailed information about the test results.",
+)
+args = argparser.parse_args()
+
 
 # Test different formulations
 formulations = [
@@ -15,19 +24,20 @@ formulations = [
     ("picard", "ncp-min-scaled", 0, "origin_and_stick_slip_transition"),
     ("picard", "ncp-fb-scaled", 0, "origin_and_stick_slip_transition"),
     ("picard", "ncp-fb-full-scaled", 0, "origin_and_stick_slip_transition"),
-    #("newton", "rr-nonlinear", 0, "none"),
-    #("newton", "rr-linear", 0, "none"),
-    #("newton", "ncp-min", 0, "origin_and_stick_slip_transition"),
-    #("newton", "ncp-fb-full", 0, "origin_and_stick_slip_transition"),
-    #("newton", "ncp-min-scaled", 0, "origin_and_stick_slip_transition"),
-    #("newton", "ncp-fb-scaled", 0, "origin_and_stick_slip_transition"),
-    #("newton", "ncp-fb-full-scaled", 0, "origin_and_stick_slip_transition"),
+    ("newton", "rr-nonlinear", 0, "none"),
+    ("newton", "rr-linear", 0, "none"),
+    ("newton", "ncp-min", 0, "origin_and_stick_slip_transition"),
+    ("newton", "ncp-fb-full", 0, "origin_and_stick_slip_transition"),
+    ("newton", "ncp-min-scaled", 0, "origin_and_stick_slip_transition"),
+    ("newton", "ncp-fb-scaled", 0, "origin_and_stick_slip_transition"),
+    ("newton", "ncp-fb-full-scaled", 0, "origin_and_stick_slip_transition"),
 ]
-study = 2
+study = 1
 seed = 4
+mesh_size = 50
 passed = []
-not_passed = formulations.copy()
-not_passed_reason = {}
+not_passed = []
+failure_overview = {}
 
 for formulation in formulations:
     # Run the simulation with the specified formulation
@@ -35,10 +45,10 @@ for formulation in formulations:
     ad_mode, mode, aa, regularization = formulation
 
     # Fetch the solver statistics
-    folder = Path("visualization") / generate_case_name(
+    folder = generate_case_name(
         study=study,
         seed=seed,
-        mesh_size=10,
+        mesh_size=mesh_size,
         dil=0.1,
         cn=1.0,
         ct=1.0,
@@ -55,80 +65,94 @@ for formulation in formulations:
         regularized_start=False,
         unitary_units=True,
     )
-    solver_statistics_filename = folder / "solver_statistics.json"
+    folder = Path(folder)
+    solver_statistics_filename = (
+        Path("visualization") / folder / "solver_statistics.json"
+    )
     final_solution_filename = {
-        "data_1": folder / "data_1_000003.vtu",
-        "data_2": folder / "data_2_000003.vtu",
-        "mortar_1": folder / "data_mortar_1_000003.vtu",
+        "data_1": Path("visualization") / folder / "data_1_000003.vtu",
+        "data_2": Path("visualization") / folder / "data_2_000003.vtu",
+        "mortar_1": Path("visualization") / folder / "data_mortar_1_000003.vtu",
     }
-
-    # Fetch references
-    reference_statistics_filename = Path("reference/solver_statistics.json")
+    reference_statistics_filename = (
+        Path("reference") / folder.parent / ad_mode / "solver_statistics.json"
+    )
     reference_solution_filename = {
-        "data_1": Path("reference/data_1_000003.vtu"),
-        "data_2": Path("reference/data_2_000003.vtu"),
-        "mortar_1": Path("reference/data_mortar_1_000003.vtu"),
+        "data_1": Path("reference") / folder.parent / ad_mode / "data_1_000003.vtu",
+        "data_2": Path("reference") / folder.parent / ad_mode / "data_2_000003.vtu",
+        "mortar_1": Path("reference")
+        / folder.parent
+        / ad_mode
+        / "data_mortar_1_000003.vtu",
     }
 
-    # Compare the final solution files
-    diff = {}
-    try:
+    # Initiate status
+    status = True
+    failure = []
+
+    # Check if the files exist
+    files_exist = solver_statistics_filename.exists()
+    for key in final_solution_filename.keys():
+        if not final_solution_filename[key].exists():
+            files_exist = False
+            break
+    if not files_exist:
+        failure.append("File not found")
+
+    if files_exist:
+        # Compare the final solution files
+        diff = {}
         for key in final_solution_filename.keys():
-            # Compare the files
+            solution_data = meshio.read(final_solution_filename[key])
+            reference_data = meshio.read(reference_solution_filename[key])
             diff[key] = DeepDiff(
-                meshio.read(final_solution_filename[key]).__dict__,
-                meshio.read(reference_solution_filename[key]).__dict__,
-                significant_digits = 3,
-                number_format_notation = "e",
+                solution_data.__dict__,
+                reference_data.__dict__,
+                significant_digits=3,
+                number_format_notation="e",
                 ignore_order=True,
                 ignore_numeric_type_changes=True,
             )
-    except:
-        ...
-    try:
+
+    if files_exist and mode == ("ncp-min-scaled",):
         # Compare the solver statistics in terms of number of iterations
         # - NOTE this comparison only makes sense when using the same method!
-        if formulation == "ncp-min-scaled":
-            solver_statistics = json.loads(solver_statistics_filename.read_text())
-            reference_statistics = json.loads(reference_statistics_filename.read_text())
-            for time_index in ["1", "2", "3"]:
-                assert (
-                    solver_statistics[time_index]["status"]
-                    == reference_statistics[time_index]["status"]
-                ), f"Solver status mismatch at time index {time_index}"
-                assert (
-                    solver_statistics[time_index]["num_iteration"]
-                    == reference_statistics[time_index]["num_iteration"]
-                ), f"Solver iterations mismatch at time index {time_index}"
-                assert (
-                    solver_statistics[time_index]["residual_norms"]
-                    == reference_statistics[time_index]["residual_norms"]
-                ), f"Solver residual norms mismatch at time index {time_index}"
+        solver_statistics = json.loads(solver_statistics_filename.read_text())
+        reference_statistics = json.loads(reference_statistics_filename.read_text())
+        for time_index in ["1", "2", "3"]:
+            if not (
+                solver_statistics[time_index]["status"]
+                == reference_statistics[time_index]["status"]
+            ):
+                failure.append(f"Solver status mismatch at time index {time_index}")
+            if not (
+                solver_statistics[time_index]["num_iteration"]
+                == reference_statistics[time_index]["num_iteration"]
+            ):
+                failure.append(f"Solver iterations mismatch at time index {time_index}")
+            if not (
+                solver_statistics[time_index]["residual_norms"]
+                == reference_statistics[time_index]["residual_norms"]
+            ):
+                failure.append(
+                    f"Solver residual norms mismatch at time index {time_index}"
+                )
 
-        # Compare the final solution files
-        if diff == {}:
-            assert False, f"Files missing for {formulation}"
-
+    if files_exist:
         for key in final_solution_filename.keys():
-            # Check if there are any differences
-            assert not diff[key], (
-                f"Files {final_solution_filename[key]} and {reference_solution_filename[key]} differ: {diff}"
-            )
+            if diff[key] != {}:
+                failure.append(f"Formulation {formulation} failed for {key}")
+                if args.verbose:
+                    print(f"Diff for {key}:")
+                    print(diff[key])
 
-        print("All tests passed for formulation:", formulation)
+    if failure == []:
         passed.append(formulation)
-        not_passed.remove(formulation)
-    except AssertionError as e:
-        print(f"Test failed for formulation {formulation}: {e}")
-        not_passed_reason[formulation] = e
-    except FileNotFoundError as e:
-        print(f"File not found for formulation {formulation}: {e}")
-        not_passed_reason[formulation] = e
-    except Exception as e:
-        print(f"An unexpected error occurred for formulation {formulation}: {e}")
-        not_passed_reason[formulation] = e
+    else:
+        not_passed.append(formulation)
+        failure_overview[formulation] = failure
 
 # Print the results
-print("Passed formulations:", passed)
-print("Not passed formulations:", not_passed)
-print("Not passed reasons:", not_passed_reason)
+ic(passed)
+ic(not_passed)
+ic(failure_overview)
