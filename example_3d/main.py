@@ -72,9 +72,18 @@ class NCPModel(ncp.UnscaledContact, ScaledNCPModel): ...
 
 
 def generate_case_name(
-    num_fractures, formulation, linearization, relaxation, linear_solver, mass_unit
+    apply_horizontal_stress,
+    num_fractures,
+    formulation,
+    linearization,
+    relaxation,
+    linear_solver,
+    mass_unit,
 ):
-    folder = Path(f"simple_bedretto_{num_fractures}")
+    folder = Path(
+        f"simple_bedretto_{num_fractures}"
+        + ("_sigma_h" if apply_horizontal_stress else "")
+    )
     name = f"{formulation.lower()}_{linearization.lower()}"
     if relaxation.lower() != "none":
         name += f"_{relaxation.lower()}"
@@ -122,6 +131,11 @@ if __name__ == "__main__":
         help="Number of fractures (1-6 [default]).",
     )
     parser.add_argument(
+        "--apply-horizontal-stress",
+        action="store_true",
+        help="Apply horizontal stress.",
+    )
+    parser.add_argument(
         "--mass-unit",
         type=float,
         default=1e0,
@@ -152,6 +166,7 @@ if __name__ == "__main__":
             "fluid": pp.FluidComponent(**fluid_parameters),
             "numerical": pp.NumericalConstants(**numerics_parameters),
         },
+        "apply_horizontal_stress": args.apply_horizontal_stress,
         # User-defined units
         "units": pp.Units(kg=args.mass_unit, m=1, s=1, rad=1),
         # Numerics

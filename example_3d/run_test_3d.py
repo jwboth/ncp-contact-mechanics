@@ -2,7 +2,6 @@ import subprocess
 import shutil
 import sys
 from pathlib import Path
-from main import generate_case_name
 import argparse
 import time
 
@@ -50,23 +49,27 @@ not_passed_reason = {}
 
 pool_instructions = []
 
-for formulation in formulations:
-    # Run the simulation with the specified formulation
-    print(f"Testing formulation: {formulation}")
-    instructions = [
-        sys.executable,
-        "main.py",
-        "--formulation",
-        formulation,
-        "--mass-unit",
-        "1",
-        "--asci-export",
-    ]
+for apply_horzizontal_stress in [True, False]:
+    for mass_unit in [1, 1e10]:
+        for formulation in formulations:
+            # Run the simulation with the specified formulation
+            print(f"Testing formulation: {formulation}")
+            instructions = [
+                sys.executable,
+                "main.py",
+                "--formulation",
+                formulation,
+                "--mass-unit",
+                str(mass_unit),
+                "--asci-export",
+            ]
+            if apply_horzizontal_stress:
+                instructions += ["--apply-horizontal-stress"]
 
-    if args.parallel:
-        pool_instructions.append(instructions)
-    else:
-        subprocess.run(instructions)
+            if args.parallel:
+                pool_instructions.append(instructions)
+            else:
+                subprocess.run(instructions)
 
 # Coordinate parallel runs using 'nohup taskset --cpu-list N python instructions (unrolled)'
 # Use for N in range(args.parallel_processors[0], args.parallel_processors[1]+1)

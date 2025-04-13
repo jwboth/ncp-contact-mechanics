@@ -37,8 +37,8 @@ injection_schedule = {
     "reference_pressure": 1e7,
 }
 
-principal_background_stress_max_factor = 0.0  # 1.3  # 1.3  # 24e6  # 24 MPa
-principal_background_stress_min_factor = 0.0  # 0.8  # 0.8  # 14e6  # 14 MPa
+principal_background_stress_max_factor = 1.3  # 1.3  # 24e6  # 24 MPa
+principal_background_stress_min_factor = 0.8  # 0.8  # 14e6  # 14 MPa
 background_stress_deg = 100 * (np.pi / 180)  # N100 degrees East
 
 numerics_parameters: dict[str, float] = {
@@ -150,8 +150,9 @@ class BackgroundStress:
         s_h = self.horizontal_background_stress(grid)
         s_v = self.vertical_background_stress(grid)
         s = np.zeros((self.nd, self.nd, grid.num_cells))
-        for i, j in np.ndindex(2, 2):
-            s[i, j] = s_h[i, j]
+        if self.params.get("apply_horizontal_stress"):
+            for i, j in np.ndindex(2, 2):
+                s[i, j] = s_h[i, j]
         s[-1, -1] = s_v
         return s
 
