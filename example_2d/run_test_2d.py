@@ -53,7 +53,7 @@ formulations = [
     ("newton", "ncp-fb-scaled", 0, "origin_and_stick_slip_transition"),
     ("newton", "ncp-fb-full-scaled", 0, "origin_and_stick_slip_transition"),
 ]
-study = 2
+study = 1
 seed = 4
 passed = []
 not_passed = formulations.copy()
@@ -95,14 +95,14 @@ for formulation in formulations:
         "--no_intersections_angle_cutoff",
         str(0.0),
         "--mesh_size",
-        str(10),
+        str(50),
         "--output",
         "visualization",
         "--num_time_steps",
         str(3),
         "--num_iter",
         str(200),
-        "--asci-export"
+        "--asci-export",
     ]
     if args.parallel:
         pool_instructions.append(instructions)
