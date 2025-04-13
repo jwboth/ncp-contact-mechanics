@@ -184,3 +184,6 @@ solver_statistics.json
 times.json
 *.out
 *.txt
+*.zip
+*.tar
+*.tar.gz
