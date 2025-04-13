@@ -62,6 +62,8 @@ for apply_horzizontal_stress in [True, False]:
                 "--mass-unit",
                 str(mass_unit),
                 "--asci-export",
+                "--num-fractures",
+                "2",
             ]
             if apply_horzizontal_stress:
                 instructions += ["--apply-horizontal-stress"]
