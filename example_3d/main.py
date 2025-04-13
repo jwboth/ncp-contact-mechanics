@@ -176,6 +176,7 @@ if __name__ == "__main__":
         "max_iterations": 200,  # Needed for export
         "folder_name": Path("visualization")
         / generate_case_name(
+            args.apply_horizontal_stress,
             args.num_fractures,
             args.formulation,
             args.linearization,
