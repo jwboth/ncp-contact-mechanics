@@ -36,57 +36,31 @@ class IterationExporting:
         """Add data to regular data export:
 
         * contact states (physical)
-        * trial contact states (connected to augemented Lagrangian idea)
-        * scaled contact traction (physical)
-        * u_t_increment (physical)
-        * displacement jump (physical)
+        * contact states (connected to augemented Lagrangian idea)
 
         """
         data = super().data_to_export()
+
+        # Use scaled traction
+        # TODO - add to PorePy
+        data = [d for d in data if d[1] != "contact_traction"]
+        for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
+            data.append(
+                (
+                    sd,
+                    "contact_traction",
+                    self.characteristic_contact_traction([sd]).value(
+                        self.equation_system
+                    )
+                    * self.contact_traction([sd]).value(self.equation_system),
+                )
+            )
+
+        # Add contact states
         states = self.compute_fracture_states(split_output=True, trial=False)
         for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
             data.append((sd, "states", states[i]))
-        trial_states = self.compute_fracture_states(split_output=True, trial=True)
-        for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
-            data.append((sd, "trial_states", trial_states[i]))
-        for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
-            data.append(
-                (
-                    sd,
-                    "scaled_traction",
-                    self.scaled_contact_traction([sd]).value(self.equation_system),
-                )
-            )
-            displacement_jump = self.displacement_jump([sd])
-            nd_vec_to_normal = self.normal_component([sd])
-            nd_vec_to_tangential = self.tangential_component([sd])
-            u_n: pp.ad.Operator = nd_vec_to_normal @ displacement_jump
-            u_t: pp.ad.Operator = nd_vec_to_tangential @ displacement_jump
-            u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
-            data.append(
-                (sd, "displacement_jump", displacement_jump.value(self.equation_system))
-            )
-            data.append(
-                (
-                    sd,
-                    "u_n",
-                    u_n.value(self.equation_system),
-                )
-            )
-            data.append(
-                (
-                    sd,
-                    "u_t",
-                    u_t.value(self.equation_system),
-                )
-            )
-            data.append(
-                (
-                    sd,
-                    "u_t_increment",
-                    u_t_increment.value(self.equation_system),
-                )
-            )
+
         return data
 
     def data_to_export_iteration(self):
