@@ -2,16 +2,11 @@ import subprocess
 import shutil
 import sys
 from pathlib import Path
-from deepdiff import DeepDiff
-import json
 from main import generate_case_name
-import meshio
 import argparse
 import time
 
 parser = argparse.ArgumentParser(description="Run single fracture test cases.")
-parser.add_argument("-o", "--option", type=str, default="all", help="Option to run.")
-parser.add_argument("-only-new", "--only-new", action="store_true", help="Only new.")
 parser.add_argument("-dry", "--dry", action="store_true", help="Only dry run.")
 parser.add_argument(
     "-c", "--cache", type=str, default="cache", help="cache for parallel runs."
