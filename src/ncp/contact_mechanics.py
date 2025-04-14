@@ -8,7 +8,7 @@ import porepy as pp
 import ncp
 
 
-class ScaledContact(UnscaledContact):
+class ScaledContact:
     def cnum(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Numerical constant for the contact problem [-]."""
         return pp.ad.Scalar(
@@ -807,6 +807,7 @@ class NCPTangentialContact2d:
             + characteristic_slip * (e_0 @ slip_equation)
             + characteristic_closed * (e_1 @ self.alignment(subdomains))
             + _characteristic_singular * (u_t - u_t.previous_iteration())
+            # TODO use regularization parameter here? e.g. c_num_to_traction * 1e-10?
             # * (c_num_to_traction @ (u_t - u_t.previous_iteration()))
         )
 
