@@ -205,7 +205,7 @@ ic(performance_failure_overview)
 # Fetch latest git log message
 def get_latest_git_commit_message():
     result = subprocess.run(
-        ["git", "log", "-1", "--pretty=%B"], capture_output=True, text=True
+        ["git", "log", "-1", "--pretty=%H %B"], capture_output=True, text=True
     )
     return result.stdout.strip()
 
