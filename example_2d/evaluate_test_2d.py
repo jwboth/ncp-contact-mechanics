@@ -114,7 +114,7 @@ for formulation in formulations:
                 ignore_numeric_type_changes=True,
             )
 
-    if files_exist and mode == ("ncp-min-scaled",):
+    if files_exist and mode == "ncp-min-scaled":
         # Compare the solver statistics in terms of number of iterations
         # - NOTE this comparison only makes sense when using the same method!
         solver_statistics = json.loads(solver_statistics_filename.read_text())
