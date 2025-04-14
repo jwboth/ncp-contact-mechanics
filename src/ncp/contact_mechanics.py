@@ -111,6 +111,7 @@ class NCPNormalContact:
             # Classical NCP formulations
             "min",
             "fb-partial",
+            "fb",
             # FB without regularization
             "fb-partial-star",
             "fb-star",
