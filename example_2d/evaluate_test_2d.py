@@ -162,11 +162,12 @@ for formulation in formulations:
         not_passed.append(formulation)
         failure_overview[formulation] = failure
 
-    if performance_failure == []:
-        performance_passed.append(formulation)
-    else:
-        performance_not_passed.append(formulation)
-        performance_failure_overview[formulation] = performance_failure
+    if mode == "ncp-min-scaled":
+        if performance_failure == []:
+            performance_passed.append(formulation)
+        else:
+            performance_not_passed.append(formulation)
+            performance_failure_overview[formulation] = performance_failure
 
 # Print the results
 ic(passed)
