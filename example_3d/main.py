@@ -191,6 +191,36 @@ if __name__ == "__main__":
         "ncp-fb-partial-unscaled",
         "ncp-fb-unscaled",
     ]:
+        from dataclasses import dataclass
+
+        @dataclass(kw_only=True, eq=False)
+        class UnscaledNumericalConstants(pp.Constants):
+            """Data class containing numerical method parameters,
+            including characteristic sizes.
+
+            """
+
+            SI_units = dict(
+                {
+                    "characteristic_displacement": "m",
+                    "characteristic_contact_traction": "Pa",
+                    "open_state_tolerance": "Pa",
+                    "contact_mechanics_scaling": "Pa",
+                }
+            )
+
+            characteristic_contact_traction: float = 1.0
+            """Characteristic traction used for scaling of contact mechanics."""
+
+            characteristic_displacement: float = 1.0
+            """Characteristic displacement used for scaling of contact mechanics."""
+
+            contact_mechanics_scaling: float = 1e0
+            """Safety scaling factor, making fractures softer than the matrix."""
+
+            open_state_tolerance: float = 1e-10
+            """Tolerance parameter for the tangential characteristic contact mechanics."""
+
         updated_numerics_parameters = numerics_parameters.copy()
         updated_numerics_parameters.update(
             {
@@ -199,7 +229,7 @@ if __name__ == "__main__":
                 "characteristic_contact_traction": 1.0,
             }
         )
-        model_params["material_constants"]["numerical"] = pp.NumericalConstants(
+        model_params["material_constants"]["numerical"] = UnscaledNumericalConstants(
             **updated_numerics_parameters
         )
 
