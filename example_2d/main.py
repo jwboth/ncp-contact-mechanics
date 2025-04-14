@@ -70,7 +70,6 @@ def generate_case_name(
     cn,
     ct,
     tol,
-    aa,
     regularization,
     formulation,
     linearization,
@@ -91,8 +90,6 @@ def generate_case_name(
         case_name += f"_dil_{dil}"
     if not np.isclose(cn, 1):
         case_name += f"_cnum_{cn}"
-    if not np.isclose(aa, 0):
-        case_name += f"_aa_{aa}"
     if not np.isclose(tol, 1e-10):
         case_name += f"_tol_{tol}"
     return case_name
@@ -251,7 +248,6 @@ if __name__ == "__main__":
         cn,
         ct,
         tol,
-        0,
         regularization,
         args.formulation.lower(),
         linearization,
