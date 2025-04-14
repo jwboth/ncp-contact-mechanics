@@ -2,10 +2,7 @@ import subprocess
 import shutil
 import sys
 from pathlib import Path
-from deepdiff import DeepDiff
-import json
 from main import generate_case_name
-import meshio
 import argparse
 import time
 
@@ -36,6 +33,10 @@ parser.add_argument(
 
 args = parser.parse_args()
 
+# Remove visualization directory if it exists
+if Path("visualization").exists():
+    shutil.rmtree("visualization")
+
 # Test different formulations
 linearizations = ["picard", "newton"]
 formulations = [
@@ -47,8 +48,8 @@ formulations = [
     ("rr-nonlinear-unscaled", "none"),
     ("rr-linear-unscaled", "none"),
     ("ncp-min-unscaled", "origin_and_stick_slip_transition"),
+    ("ncp-fb-partial-unscaled", "origin_and_stick_slip_transition"),
     ("ncp-fb-unscaled", "origin_and_stick_slip_transition"),
-    ("ncp-fb-full-unscaled", "origin_and_stick_slip_transition"),
 ]
 study = 1
 seed = 4
