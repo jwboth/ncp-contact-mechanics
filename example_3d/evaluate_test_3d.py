@@ -19,7 +19,9 @@ args = argparser.parse_args()
 horizontal_stresses = [True, False]
 formulations = [
     "rr-nonlinear",
+    "rr-nonlinear-unscaled",
     "rr-linear",
+    "rr-linear-unscaled",
     "ncp-min",
     "ncp-min-scaled",
     "ncp-fb-full",
