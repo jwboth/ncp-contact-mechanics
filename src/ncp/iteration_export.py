@@ -541,7 +541,6 @@ class IterationExporting:
         # Store cycling window
         if cycling_window > 0:
             self.cycling_window = cycling_window
-            self.is_cycling = cycling_window > 1
         else:
             self.cycling_window = 0
 
