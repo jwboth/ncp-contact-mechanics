@@ -221,20 +221,20 @@ with open(
     f.write("--------------------------------------------------------\n")
     f.write(f"Test run on {datetime.datetime.now()}\n")
     f.write(f"Latest commit message: {latest_commit_message}\n")
-    f.write("Passed:\n")
+    f.write(f"Passed {len(passed)}:\n")
     for item in passed:
         f.write(f"{item}\n")
-    f.write("\nNot Passed:\n")
+    f.write(f"\nNot Passed {len(not_passed)}:\n")
     for item in not_passed:
         f.write(f"{item}\n")
     f.write("\nFailure Overview:\n")
     for key, value in failure_overview.items():
         f.write(f"{key}: {value}\n")
     f.write("\n")
-    f.write("Performance Passed:\n")
+    f.write(f"Performance Passed {len(performance_passed)}:\n")
     for item in performance_passed:
         f.write(f"{item}\n")
-    f.write("\nPerformance Not Passed:\n")
+    f.write(f"\nPerformance Not Passed {len(performance_not_passed)}:\n")
     for item in performance_not_passed:
         f.write(f"{item}\n")
     f.write("\nPerformance Failure Overview:\n")
