@@ -32,6 +32,10 @@ parser.add_argument(
 
 args = parser.parse_args()
 
+# Remove visualization directory if it exists
+if Path("visualization").exists():
+    shutil.rmtree("visualization")
+
 # Test different formulations
 formulations = [
     "rr-nonlinear",
