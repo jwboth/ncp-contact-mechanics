@@ -39,25 +39,33 @@ class NonlinearRadialReturnModel(
     ncp.LogPerformanceDataVectorial,  # Tailored convergence checks
     ncp.ReverseElasticModuli,  # Characteristic displacement from traction
     Physics,  # Model, BC and IC
-):
-    ...
-    """Mixed-dimensional poroelastic problem."""
+): ...
 
 
+# Alart and Curnier formulation, but with scaled contact conditions
 class LinearRadialReturnModel(
     ncp.LinearRadialReturnTangentialContact, NonlinearRadialReturnModel
 ): ...
 
 
 # NCP Formulations
-class ScaledNCPModel(
+class NCPModel(
     ncp.NCPNormalContact,
     ncp.NCPTangentialContact2d,
     NonlinearRadialReturnModel,
 ): ...
 
 
-class NCPModel(ncp.UnscaledContact, ScaledNCPModel): ...
+# Unscaled variants
+class UnscaledNonlinearRadialReturnModel(
+    ncp.UnscaledContact, NonlinearRadialReturnModel
+): ...
+
+
+class UnscaledLinearRadialReturnModel(ncp.UnscaledContact, LinearRadialReturnModel): ...
+
+
+class UnscaledNCPModel(ncp.UnscaledContact, NCPModel): ...
 
 
 def generate_case_name(
@@ -205,9 +213,9 @@ if __name__ == "__main__":
         in [
             "rr-nonlinear",
             "rr-linear",
-            "ncp-min-scaled",
-            "ncp-fb-scaled",
-            "ncp-fb-full-scaled",
+            "ncp-min",
+            "ncp-fb-partial",
+            "ncp-fb-full",
         ]
         else 1.0
     )
@@ -217,9 +225,9 @@ if __name__ == "__main__":
         in [
             "rr-nonlinear",
             "rr-linear",
-            "ncp-min-scaled",
-            "ncp-fb-scaled",
-            "ncp-fb-full-scaled",
+            "ncp-min",
+            "ncp-fb-partial",
+            "ncp-fb-full",
         ]
         else tol * injection_schedule["reference_pressure"]
     )
@@ -278,17 +286,18 @@ if __name__ == "__main__":
         case "rr-nonlinear":
             Model = NonlinearRadialReturnModel
 
-        case "rr-nonlinear-unscaled":
-            Model = NonlinearRadialReturnModel
-
         case "rr-linear":
-            Model = LinearRadialReturnModel
-
-        case "rr-linear-unscaled":
             Model = LinearRadialReturnModel
 
         case "ncp-min":
             model_params["ncp_type"] = "min"
+            model_params["stick_slip_regularization"] = (
+                "origin_and_stick_slip_transition"
+            )
+            Model = NCPModel
+
+        case "ncp-fb-partial":
+            model_params["ncp_type"] = "fb-partial"
             model_params["stick_slip_regularization"] = (
                 "origin_and_stick_slip_transition"
             )
@@ -301,33 +310,32 @@ if __name__ == "__main__":
             )
             Model = NCPModel
 
-        case "ncp-fb-full":
-            model_params["ncp_type"] = "fb-full"
-            model_params["stick_slip_regularization"] = (
-                "origin_and_stick_slip_transition"
-            )
-            Model = NCPModel
+        case "rr-nonlinear-unscaled":
+            Model = NonlinearRadialReturnModel
 
-        case "ncp-min-scaled":
+        case "rr-linear-unscaled":
+            Model = LinearRadialReturnModel
+
+        case "ncp-min-unscaled":
             model_params["ncp_type"] = "min"
             model_params["stick_slip_regularization"] = (
                 "origin_and_stick_slip_transition"
             )
-            Model = ScaledNCPModel
+            Model = UnscaledNCPModel
 
-        case "ncp-fb-scaled":
+        case "ncp-fb-partial-unscaled":
+            model_params["ncp_type"] = "fb-partial"
+            model_params["stick_slip_regularization"] = (
+                "origin_and_stick_slip_transition"
+            )
+            Model = UnscaledNCPModel
+
+        case "ncp-fb-unscaled":
             model_params["ncp_type"] = "fb"
             model_params["stick_slip_regularization"] = (
                 "origin_and_stick_slip_transition"
             )
-            Model = ScaledNCPModel
-
-        case "ncp-fb-full-scaled":
-            model_params["ncp_type"] = "fb-full"
-            model_params["stick_slip_regularization"] = (
-                "origin_and_stick_slip_transition"
-            )
-            Model = ScaledNCPModel
+            Model = UnscaledNCPModel
 
         case _:
             raise ValueError(f"formulation {args.formulation} not recognized.")

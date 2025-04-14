@@ -110,11 +110,10 @@ class NCPNormalContact:
         assert ncp_type in [
             # Classical NCP formulations
             "min",
-            "fb",
-            "fb-full",
+            "fb-partial",
             # FB without regularization
+            "fb-partial-star",
             "fb-star",
-            "fb-full-star",
             # Linearized NCP formulations
             "min-linear",
             "fb-linear",
@@ -128,8 +127,8 @@ class NCPNormalContact:
 
         if ncp_type in [
             "min",
-            "fb",
-            "fb-star",
+            "fb-partial",
+            "fb-partial-star",
             "min-linear",
             "fb-linear",
             "min-alternative-stick",
@@ -137,30 +136,16 @@ class NCPNormalContact:
             "min-log-reg",
             "min-sqrt",
             "min-no-intersections",
-            # "min-active-set",
-            # "min-star",
-            # "min-reg-rr",
-            # "min-fb-rr",
-            # "min-sqrt-star",
-            # "min/rr",
         ]:
             # min-NCP: min(a,b) = -max(-a,-b)
             equation: pp.ad.Operator = ncp.min(force, gap)
-        # elif ncp_type == "min-penalty":
-        #    equation: pp.ad.Operator = (
-        #        pp.ad.Scalar(1.0) - fracture_intersection_cells
-        #    ) * ncp.min(force, gap) + fracture_intersection_cells * (
-        #        force + pp.ad.Scalar(1e10) * ncp.min(-gap, pp.ad.Scalar(0.0))
-        #    )
         elif ncp_type in [
-            "fb-full",
-            # "fb-alternative-stick"
+            "fb",
         ]:
             # Fischer-Burmeister: (a**2 + b**2)**0.5 - (a + b)
             equation = ncp.min_regularized_fb(force, gap, tol=1e-10)
         elif ncp_type in [
-            "fb-full-star",
-            # "fb-alternative-stick"
+            "fb-star",
         ]:
             # Fischer-Burmeister: (a**2 + b**2)**0.5 - (a + b)
             equation = ncp.fb(force, gap)
@@ -265,60 +250,6 @@ class AuxiliaryContact:
 
 
 class NCPTangentialContact2d:
-    # def contact_mechanics_numerical_constant(
-    #    self, subdomains: list[pp.Grid]
-    # ) -> pp.ad.Scalar:
-    #    """Numerical constant for the contact problem [m^-1].
-
-    #    As the normal contact, but without the shear modulus.
-
-    #    """
-
-    #    shear_modulus = self.solid.shear_modulus()
-    #    characteristic_distance = (
-    #        self.solid.residual_aperture() + self.solid.fracture_gap()
-    #    )
-    #    softening_factor = self.params.get("softening_factor", 1e1)
-
-    #    val = softening_factor * shear_modulus / characteristic_distance
-    #    return pp.ad.Scalar(val, name="Contact_mechanics_numerical_constant")
-
-    # def contact_mechanics_numerical_constant_tangential(
-    #     self, subdomains: list[pp.Grid]
-    # ) -> pp.ad.Scalar:
-    #     """Numerical constant for the contact problem [m^-1].
-
-    #     As the normal contact, but without the shear modulus.
-
-    #     """
-
-    #     shear_modulus = self.solid.shear_modulus()
-    #     characteristic_distance = (
-    #         self.solid.residual_aperture() + self.solid.fracture_gap()
-    #     )
-    #     softening_factor = self.params.get("contact_mechanics_scaling_tangential", 1e1)
-
-    #     val = softening_factor * shear_modulus / characteristic_distance
-    #     return pp.ad.Scalar(val, name="Contact_mechanics_numerical_constant_tangential")
-
-    # def contact_mechanics_numerical_constant_ncp_tangential(
-    #    self, subdomains: list[pp.Grid]
-    # ) -> pp.ad.Scalar:
-    #    """Numerical constant for the contact problem [m^-1].
-
-    #    As the normal contact, but without the shear modulus.
-
-    #    """
-
-    #    characteristic_distance = (
-    #        self.solid.residual_aperture() + self.solid.fracture_gap()
-    #    )
-    #    softening_factor = self.params.get("contact_mechanics_scaling_t", 1e2)
-    #    val = softening_factor / characteristic_distance
-    #    return pp.ad.Scalar(
-    #        val, name="Contact_mechanics_numerical_constant_tangential_ncp"
-    #    )
-
     def tangential_fracture_deformation_equation(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
@@ -489,11 +420,7 @@ class NCPTangentialContact2d:
         # tangential displacement and traction
         ncp_type = self.params.get("ncp_type", "min")
 
-        # TODO all choices relevant?
         if ncp_type == "min-alternative-stick":
-            # Min-ncp between yield criterion and orthogonality
-            # NOTE: Requires careful treatment of the stick case and thus a split into
-            # slip_equation and stick_equation
             slip_equation: pp.ad.Operator = ncp.min(
                 yield_criterion, scaled_orthogonality
             )
@@ -502,11 +429,6 @@ class NCPTangentialContact2d:
                 - f_norm(c_num_to_one @ u_t_increment) * friction_bound
             )
         elif ncp_type == "min":
-            # closed_equation: pp.ad.Operator = ncp.min(
-            #    yield_criterion,
-            #    scaled_orthogonality
-            #    - f_norm(c_num_to_one @ u_t_increment) * friction_bound,
-            # )
             closed_equation: pp.ad.Operator = ncp.min(
                 yield_criterion,
                 scaled_orthogonality
@@ -524,57 +446,6 @@ class NCPTangentialContact2d:
                 )
                 + fracture_intersection_cells * t_t  # u_t_increment
             )
-
-        # elif ncp_type == "min-reg-rr":
-        #     # NOTE: Regularization needed to make sure matrix not singular
-        #     # open_equation = (scalar_to_tangential @ yield_criterion) + f_characteristic(
-        #     #    f_norm(t_t)
-        #     # ) * (
-        #     #    t_t - t_t.previous_iteration()
-        #     # )  # yield_criterion
-        #     # More robustly and equivalently:
-
-        #     # NCP
-        #     min_slip_equation: pp.ad.Operator = ncp.min(
-        #         yield_criterion,
-        #         scaled_orthogonality
-        #         - f_norm(c_num_to_one @ u_t_increment) * friction_bound,
-        #     )
-
-        #     # RR
-        #     tangential_sum = t_t + c_num_to_traction @ u_t_increment
-        #     norm_tangential_sum = f_norm(tangential_sum)
-        #     norm_tangential_sum.set_name("norm_tangential")
-        #     b_p = f_max(friction_bound, zeros_frac)
-        #     b_p.set_name("bp")
-
-        #     # For the use of @, see previous comment.
-        #     min_term = (
-        #         pp.ad.Scalar(-1.0)
-        #         * scalar_to_tangential
-        #         @ f_max(
-        #             pp.ad.Scalar(-1.0) * ones_frac,
-        #             pp.ad.Scalar(-1.0) * b_p / norm_tangential_sum,
-        #         )
-        #     )
-
-        #     # Compose the equation itself. The last term handles the case bound=0, in which
-        #     # case t_t = 0 cannot be deduced from the standard version of the complementary
-        #     # function (i.e. without the characteristic function). Filter out the other
-        #     # terms in this case to improve convergence
-        #     rr_equation: pp.ad.Operator = t_t - min_term * tangential_sum
-
-        #     f_characteristic_sing = pp.ad.Function(
-        #         partial(pp.ad.functions.characteristic_function, 1e-12),
-        #         "characteristic_function_for_zero_normal_traction",
-        #     )
-        #     char_value = f_characteristic_sing(
-        #         f_norm(u_t_increment) * f_abs(yield_criterion)
-        #     )
-        #     closed_equation = (
-        #         char_value * rr_equation
-        #         + (pp.ad.Scalar(1.0) - char_value) * min_slip_equation
-        #     )
 
         elif ncp_type == "min-sqrt":
             stick_term = (
@@ -635,7 +506,7 @@ class NCPTangentialContact2d:
             ) * scaled_orthogonality / f_norm(t_t)
             closed_equation = ncp.min(modified_yield_criterion, stick_term)
 
-        elif ncp_type in ["fb", "fb-full"]:
+        elif ncp_type in ["fb-partial", "fb"]:
             # Fischer-Burmeister: (a**2 + b**2)**0.5 - (a + b)
             stick_term = (
                 scaled_orthogonality
@@ -644,7 +515,7 @@ class NCPTangentialContact2d:
             closed_equation = ncp.min_regularized_fb(
                 yield_criterion, stick_term, tol=1e-10
             )
-        elif ncp_type in ["fb-star", "fb-full-star"]:
+        elif ncp_type in ["fb-partial-star", "fb-star"]:
             # Fischer-Burmeister: (a**2 + b**2)**0.5 - (a + b)
             stick_term = (
                 scaled_orthogonality
@@ -722,49 +593,6 @@ class NCPTangentialContact2d:
                 switch * min_stick_equation
                 + (pp.ad.Scalar(1.0) - switch) * fb_stick_equation
             )
-
-        elif ncp_type == "min/rr":
-            raise NotImplementedError
-            # min-NCP: min(a,b) = -max(-a,-b)
-            # min_closed_equation: pp.ad.Operator = pp.ad.Scalar(-1) * f_max(
-            #    pp.ad.Scalar(-1) * yield_criterion,
-            #    pp.ad.Scalar(-1)
-            #    * (
-            #        scaled_orthogonality
-            #        - f_norm(c_num_to_one @ u_t_increment) * friction_bound
-            #    ),
-            # )
-            ## RR
-            # tangential_sum = t_t + c_num_to_traction @ u_t_increment
-            # norm_tangential_sum = f_norm(tangential_sum)
-            # norm_tangential_sum.set_name("norm_tangential")
-            # b_p = f_max(friction_bound, zeros_frac)
-            # b_p.set_name("bp")
-
-            ## For the use of @, see previous comment.
-            # min_term = (
-            #    pp.ad.Scalar(-1.0)
-            #    * scalar_to_tangential
-            #    @ f_max(
-            #        pp.ad.Scalar(-1.0) * ones_frac,
-            #        pp.ad.Scalar(-1.0) * b_p / norm_tangential_sum,
-            #    )
-            # )
-            # rr_closed_equation: pp.ad.Operator = t_t - min_term * tangential_sum
-
-            # switch = self.switch(subdomains)
-            # closed_equation = (
-            #    switch * min_closed_equation
-            #    + (pp.ad.Scalar(1.0) - switch) * rr_closed_equation
-            # )
-
-        elif ncp_type == "min-fb-rr":
-            raise NotImplementedError
-            # modified_yield_criterion = f_sign(u_t_increment) * t_t + friction_bound
-            # stick_equation = (f_norm(u_t_increment) + modified_yield_criterion) - (
-            #    f_norm(u_t_increment) ** 2 + modified_yield_criterion**2
-            # ) ** 0.5
-            # slip_equation = ncp.min(yield_criterion, stick_equation)
 
         else:
             raise ValueError(f"Unknown ncp_type: {ncp_type}")

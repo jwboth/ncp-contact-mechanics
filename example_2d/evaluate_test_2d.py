@@ -23,10 +23,13 @@ formulations = [
     ("rr-nonlinear", "none"),
     ("rr-linear", "none"),
     ("ncp-min", "origin_and_stick_slip_transition"),
-    ("ncp-fb-full", "origin_and_stick_slip_transition"),
-    ("ncp-min-scaled", "origin_and_stick_slip_transition"),
-    ("ncp-fb-scaled", "origin_and_stick_slip_transition"),
-    ("ncp-fb-full-scaled", "origin_and_stick_slip_transition"),
+    ("ncp-fb", "origin_and_stick_slip_transition"),
+    ("ncp-fb-partial", "origin_and_stick_slip_transition"),
+    ("rr-nonlinear-unscaled", "none"),
+    ("rr-linear-unscaled", "none"),
+    ("ncp-min-unscaled", "origin_and_stick_slip_transition"),
+    ("ncp-fb-partial-unscaled", "origin_and_stick_slip_transition"),
+    ("ncp-fb-unscaled", "origin_and_stick_slip_transition"),
 ]
 study = 1
 seed = 4

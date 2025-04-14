@@ -41,21 +41,30 @@ class NonlinearRadialReturnModel(
     """Simple Bedretto model solved with Huebers nonlinear radial return formulation."""
 
 
+# Alart and Curnier formulation, but with scaled contact conditions
 class LinearRadialReturnModel(
     ncp.LinearRadialReturnTangentialContact, NonlinearRadialReturnModel
-):
-    """Simple Bedretto model solved with Alart linear radial return formulation."""
+): ...
 
 
-class ScaledNCPModel(
+# NCP Formulations
+class NCPModel(
     ncp.NCPNormalContact,
     ncp.NCPTangentialContact2d,
     NonlinearRadialReturnModel,
-):
-    """Simple Bedretto model solved with NCP formulation."""
+): ...
 
 
-class NCPModel(ncp.UnscaledContact, ScaledNCPModel): ...
+# Unscaled variants
+class UnscaledNonlinearRadialReturnModel(
+    ncp.UnscaledContact, NonlinearRadialReturnModel
+): ...
+
+
+class UnscaledLinearRadialReturnModel(ncp.UnscaledContact, LinearRadialReturnModel): ...
+
+
+class UnscaledNCPModel(ncp.UnscaledContact, NCPModel): ...
 
 
 def generate_case_name(
@@ -176,11 +185,11 @@ if __name__ == "__main__":
 
     # Update the numerical parameter if unscaled formulation is used
     if args.formulation.lower() in [
-        "ncp-min",
-        "ncp-fb",
-        "ncp-fb-full",
         "rr-nonlinear-unscaled",
         "rr-linear-unscaled",
+        "ncp-min-unscaled",
+        "ncp-fb-partial-unscaled",
+        "ncp-fb-unscaled",
     ]:
         updated_numerics_parameters = numerics_parameters.copy()
         updated_numerics_parameters.update(
@@ -218,13 +227,7 @@ if __name__ == "__main__":
         case "rr-nonlinear":
             Model = NonlinearRadialReturnModel
 
-        case "rr-nonlinear-unscaled":
-            Model = NonlinearRadialReturnModel
-
         case "rr-linear":
-            Model = LinearRadialReturnModel
-
-        case "rr-linear-unscaled":
             Model = LinearRadialReturnModel
 
         case "ncp-min":
@@ -241,33 +244,39 @@ if __name__ == "__main__":
             )
             Model = NCPModel
 
-        case "ncp-fb-full":
-            model_params["ncp_type"] = "fb-full"
+        case "ncp-fb-partial":
+            model_params["ncp_type"] = "fb-partial"
             model_params["stick_slip_regularization"] = (
                 "origin_and_stick_slip_transition"
             )
             Model = NCPModel
 
-        case "ncp-min-scaled":
+        case "rr-nonlinear-unscaled":
+            Model = NonlinearRadialReturnModel
+
+        case "rr-linear-unscaled":
+            Model = LinearRadialReturnModel
+
+        case "ncp-min-unscaled":
             model_params["ncp_type"] = "min"
             model_params["stick_slip_regularization"] = (
                 "origin_and_stick_slip_transition"
             )
-            Model = ScaledNCPModel
+            Model = UnscaledNCPModel
 
-        case "ncp-fb-scaled":
+        case "ncp-fb-unscaled":
             model_params["ncp_type"] = "fb"
             model_params["stick_slip_regularization"] = (
                 "origin_and_stick_slip_transition"
             )
-            Model = ScaledNCPModel
+            Model = UnscaledNCPModel
 
-        case "ncp-fb-full-scaled":
-            model_params["ncp_type"] = "fb-full"
+        case "ncp-fb-partial-unscaled":
+            model_params["ncp_type"] = "fb-partial"
             model_params["stick_slip_regularization"] = (
                 "origin_and_stick_slip_transition"
             )
-            Model = ScaledNCPModel
+            Model = UnscaledNCPModel
 
         case _:
             raise ValueError(f"formulation {args.formulation} not recognized.")

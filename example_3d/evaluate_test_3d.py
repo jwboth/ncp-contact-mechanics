@@ -20,13 +20,13 @@ args = argparser.parse_args()
 horizontal_stresses = [True, False]
 formulations = [
     "rr-nonlinear",
-    "rr-nonlinear-unscaled",
     "rr-linear",
-    "rr-linear-unscaled",
     "ncp-min",
-    "ncp-min-scaled",
-    "ncp-fb-full",
-    "ncp-fb-full-scaled",
+    "ncp-fb",
+    "rr-nonlinear-unscaled",
+    "rr-linear-unscaled",
+    "ncp-min-unscaled",
+    "ncp-fb-unscaled",
 ]
 mass_units = [1, 1e10]
 num_fractures = 2
