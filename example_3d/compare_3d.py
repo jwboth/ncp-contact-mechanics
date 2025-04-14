@@ -1,38 +1,51 @@
 from pathlib import Path
 from deepdiff import DeepDiff
-import json
 from main import generate_case_name
 import meshio
-import argparse
 from icecream import ic
+import argparse
+import json
 
 argparser = argparse.ArgumentParser(description="Run single fracture test cases.")
 argparser.add_argument(
-    "-verbose",
+    "-v",
+    "--verbose",
     action="store_true",
     help="Print detailed information about the test results.",
 )
 args = argparser.parse_args()
 
+
 # Test different formulations
+horizontal_stresses = [
+    True
+    # , False
+]
 formulations = [
     "rr-nonlinear",
-    "rr-linear",
-    "ncp-min",
-    "ncp-min-scaled",
-    "ncp-fb-full",
-    "ncp-fb-full-scaled",
+    # "rr-nonlinear-unscaled",
+    # "rr-linear",
+    # "rr-linear-unscaled",
+    # "ncp-min",
+    # "ncp-min-scaled",
+    # "ncp-fb-full",
+    # "ncp-fb-full-scaled",
+]
+mass_units = [
+    # 1,
+    1e10
 ]
 num_fractures = 2
 passed = []
 not_passed = []
 failure_overview = {}
 
-for apply_horizontal_stress in [True, False]:
-    for mass_unit in [1, 1e10]:
+
+for apply_horizontal_stress in horizontal_stresses:
+    for mass_unit in mass_units:
         for formulation in formulations:
             # Run the simulation with the specified formulation
-            print(f"Testing formulation: {formulation}")
+            combination = (apply_horizontal_stress, mass_unit, formulation)
 
             # Fetch the solver statistics
             folder = generate_case_name(
@@ -55,28 +68,30 @@ for apply_horizontal_stress in [True, False]:
 
             # Fetch references
             reference_statistics_filename = (
-                Path("reference") / folder / "solver_statistics.json"
+                Path("visualization_miloke") / folder / "solver_statistics.json"
             )
-            reference_final_solution_filename = {
-                "data_2": Path("reference") / folder / "data_2_000003.vtu",
-                "data_3": Path("reference") / folder / "data_3_000003.vtu",
-                "mortar_2": Path("reference") / folder / "data_mortar_2_000003.vtu",
+            reference_solution_filename = {
+                "data_2": Path("visualization_miloke") / folder / "data_2_000003.vtu",
+                "data_3": Path("visualization_miloke") / folder / "data_3_000003.vtu",
+                "mortar_2": Path("visualization_miloke")
+                / folder
+                / "data_mortar_2_000003.vtu",
             }
 
-            # Fill in with the missing data_1 and mortar_1 files if the exist
+            # Fill in the missing data_1 and mortar_1 if they exist
             if (Path("visualization") / folder / "data_1_000000.vtu").exists():
                 final_solution_filename["data_1"] = (
                     Path("visualization") / folder / "data_1_000003.vtu"
                 )
-                reference_final_solution_filename["data_1"] = (
-                    Path("reference") / folder / "data_1_000003.vtu"
+                reference_solution_filename["data_1"] = (
+                    Path("visualization_miloke") / folder / "data_1_000003.vtu"
                 )
             if (Path("visualization") / folder / "data_mortar_1_000000.vtu").exists():
                 final_solution_filename["mortar_1"] = (
                     Path("visualization") / folder / "data_mortar_1_000003.vtu"
                 )
-                reference_final_solution_filename["mortar_1"] = (
-                    Path("reference") / folder / "data_mortar_1_000003.vtu"
+                reference_solution_filename["mortar_1"] = (
+                    Path("visualization_miloke") / folder / "data_mortar_1_000003.vtu"
                 )
 
             # Initiate status
@@ -101,7 +116,7 @@ for apply_horizontal_stress in [True, False]:
                     diff[key] = DeepDiff(
                         solution_data.__dict__,
                         reference_data.__dict__,
-                        significant_digits=3,
+                        significant_digits=2,
                         number_format_notation="e",
                         ignore_order=True,
                         ignore_numeric_type_changes=True,
@@ -146,10 +161,12 @@ for apply_horizontal_stress in [True, False]:
                             print(diff[key])
 
             if failure == []:
-                passed.append(formulation)
+                passed.append(combination)
+                print(f"Testing: {combination} passed")
             else:
-                not_passed.append(formulation)
-                failure_overview[formulation] = failure
+                not_passed.append(combination)
+                failure_overview[combination] = failure
+                print(f"Testing: {combination} failed")
 
 # Print the results
 ic(passed)

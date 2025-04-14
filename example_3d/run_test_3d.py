@@ -43,13 +43,14 @@ formulations = [
     "ncp-fb-full",
     "ncp-fb-full-scaled",
 ]
+num_fractures = 2
 passed = []
 not_passed = formulations.copy()
 not_passed_reason = {}
 
 pool_instructions = []
 
-for apply_horzizontal_stress in [True, False]:
+for apply_horizontal_stress in [True, False]:
     for mass_unit in [1, 1e10]:
         for formulation in formulations:
             # Run the simulation with the specified formulation
@@ -63,9 +64,9 @@ for apply_horzizontal_stress in [True, False]:
                 str(mass_unit),
                 "--asci-export",
                 "--num-fractures",
-                "2",
+                str(num_fractures),
             ]
-            if apply_horzizontal_stress:
+            if apply_horizontal_stress:
                 instructions += ["--apply-horizontal-stress"]
 
             if args.parallel:
