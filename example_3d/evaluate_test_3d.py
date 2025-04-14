@@ -140,6 +140,7 @@ for apply_horizontal_stress in horizontal_stresses:
                 for key in final_solution_filename.keys():
                     if diff[key] != {}:
                         failure.append(f"diff failed for {key}")
+                        failure.append(diff[key])
                         if args.verbose:
                             print(f"Diff for {key}:")
                             print(diff[key])

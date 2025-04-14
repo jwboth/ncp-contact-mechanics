@@ -123,7 +123,8 @@ for linearization in linearizations:
         if files_exist:
             for key in final_solution_filename.keys():
                 if diff[key] != {}:
-                    failure.append(f"Formulation {formulation} failed for {key}")
+                    failure.append(f"Diff failed for {key}")
+                    failure.append(diff[key])
                     if args.verbose:
                         print(f"Diff for {key}:")
                         print(diff[key])
