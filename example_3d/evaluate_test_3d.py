@@ -39,7 +39,7 @@ performance_failure_overview = {}
 
 for apply_horizontal_stress in horizontal_stresses:
     for mass_unit in mass_units:
-        mass_unit_str = "1"  # if mass_unit == 1 else "1e+10"
+        mass_unit_str = "1" if mass_unit == 1 else "1e+10"
         for formulation in formulations:
             # Run the simulation with the specified formulation
             combination = (apply_horizontal_stress, mass_unit, formulation)
@@ -71,17 +71,11 @@ for apply_horizontal_stress in horizontal_stresses:
                 / "solver_statistics.json"
             )
             reference_solution_filename = {
-                "data_2": Path("reference")
-                / folder.parent
-                / mass_unit_str
-                / "data_2_000003.vtu",
-                "data_3": Path("reference")
-                / folder.parent
-                / mass_unit_str
-                / "data_3_000003.vtu",
+                "data_2": Path("reference") / folder.parent / "1" / "data_2_000003.vtu",
+                "data_3": Path("reference") / folder.parent / "1" / "data_3_000003.vtu",
                 "mortar_2": Path("reference")
                 / folder.parent
-                / mass_unit_str
+                / "1"
                 / "data_mortar_2_000003.vtu",
             }
 
