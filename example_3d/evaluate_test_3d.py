@@ -66,10 +66,17 @@ for apply_horizontal_stress in horizontal_stresses:
                 Path("reference") / folder.parent / "solver_statistics.json"
             )
             reference_solution_filename = {
-                "data_2": Path("reference") / folder.parent / "data_2_000003.vtu",
-                "data_3": Path("reference") / folder.parent / "data_3_000003.vtu",
+                "data_2": Path("reference")
+                / folder.parent
+                / str(mass_unit)
+                / "data_2_000003.vtu",
+                "data_3": Path("reference")
+                / folder.parent
+                / str(mass_unit)
+                / "data_3_000003.vtu",
                 "mortar_2": Path("reference")
                 / folder.parent
+                / str(mass_unit)
                 / "data_mortar_2_000003.vtu",
             }
 
@@ -79,14 +86,20 @@ for apply_horizontal_stress in horizontal_stresses:
                     Path("visualization") / folder / "data_1_000003.vtu"
                 )
                 reference_solution_filename["data_1"] = (
-                    Path("reference") / folder.parent / "data_1_000003.vtu"
+                    Path("reference")
+                    / folder.parent
+                    / str(mass_unit)
+                    / "data_1_000003.vtu"
                 )
             if (Path("visualization") / folder / "data_mortar_1_000000.vtu").exists():
                 final_solution_filename["mortar_1"] = (
                     Path("visualization") / folder / "data_mortar_1_000003.vtu"
                 )
                 reference_solution_filename["mortar_1"] = (
-                    Path("reference") / folder.parent / "data_mortar_1_000003.vtu"
+                    Path("reference")
+                    / folder.parent
+                    / str(mass_unit)
+                    / "data_mortar_1_000003.vtu"
                 )
 
             # Initiate status
