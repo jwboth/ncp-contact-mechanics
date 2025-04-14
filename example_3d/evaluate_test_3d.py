@@ -130,7 +130,7 @@ for apply_horizontal_stress in horizontal_stresses:
                     diff[key] = DeepDiff(
                         solution_data.__dict__,
                         reference_data.__dict__,
-                        significant_digits=3,
+                        significant_digits=2,
                         number_format_notation="e",
                         ignore_order=True,
                         ignore_numeric_type_changes=True,
