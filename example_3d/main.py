@@ -252,10 +252,10 @@ if __name__ == "__main__":
             Model = NCPModel
 
         case "rr-nonlinear-unscaled":
-            Model = NonlinearRadialReturnModel
+            Model = UnscaledNonlinearRadialReturnModel
 
         case "rr-linear-unscaled":
-            Model = LinearRadialReturnModel
+            Model = UnscaledLinearRadialReturnModel
 
         case "ncp-min-unscaled":
             model_params["ncp_type"] = "min"
