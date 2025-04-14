@@ -220,14 +220,6 @@ class NCPNormalContact:
         ]:
             # Fischer-Burmeister: (a**2 + b**2)**0.5 - (a + b)
             equation = ncp.fb(force, gap)
-        # elif ncp_type == "min/fb":
-        #     min_fb_switch = self.min_fb_switch(subdomains)
-        #     min_slip_equation: pp.ad.Operator = ncp.min(force, gap)
-        #     fb_slip_equation = ncp.min_regularized_fb(force, gap, tol=1e-10)
-        #     equation = (
-        #         min_fb_switch * min_slip_equation
-        #         + (pp.ad.Scalar(1.0) - min_fb_switch) * fb_slip_equation
-        #     )
         else:
             raise NotImplementedError(f"Unknown ncp_type: {ncp_type}")
 
@@ -737,7 +729,7 @@ class NCPTangentialContact2d:
                 yield_criterion, scaled_orthogonality
             )
         elif ncp_type == "min-star":
-            min_fb_switch = self.min_fb_switch(subdomains)
+            switch = self.switch(subdomains)
             slip_equation: pp.ad.Operator = ncp.min(
                 yield_criterion, scaled_orthogonality
             )
@@ -747,8 +739,8 @@ class NCPTangentialContact2d:
             )
             active_set_stick_equation = c_num_to_traction @ u_t_increment
             stick_equation = (
-                min_fb_switch * min_stick_equation
-                + (pp.ad.Scalar(1.0) - min_fb_switch) * active_set_stick_equation
+                switch * min_stick_equation
+                + (pp.ad.Scalar(1.0) - switch) * active_set_stick_equation
             )
         elif ncp_type == "fb-alternative-stick":
             slip_equation = ncp.min_regularized_fb(
@@ -777,14 +769,14 @@ class NCPTangentialContact2d:
                 - f_norm(c_num_to_one @ u_t_increment) * friction_bound
             )
 
-            min_fb_switch = self.min_fb_switch(subdomains)
+            switch = self.switch(subdomains)
             slip_equation = (
-                min_fb_switch * min_slip_equation
-                + (pp.ad.Scalar(1.0) - min_fb_switch) * fb_slip_equation
+                switch * min_slip_equation
+                + (pp.ad.Scalar(1.0) - switch) * fb_slip_equation
             )
             stick_equation = (
-                min_fb_switch * min_stick_equation
-                + (pp.ad.Scalar(1.0) - min_fb_switch) * fb_stick_equation
+                switch * min_stick_equation
+                + (pp.ad.Scalar(1.0) - switch) * fb_stick_equation
             )
 
         elif ncp_type == "min/rr":
@@ -816,10 +808,10 @@ class NCPTangentialContact2d:
             # )
             # rr_closed_equation: pp.ad.Operator = t_t - min_term * tangential_sum
 
-            # min_fb_switch = self.min_fb_switch(subdomains)
+            # switch = self.switch(subdomains)
             # closed_equation = (
-            #    min_fb_switch * min_closed_equation
-            #    + (pp.ad.Scalar(1.0) - min_fb_switch) * rr_closed_equation
+            #    switch * min_closed_equation
+            #    + (pp.ad.Scalar(1.0) - switch) * rr_closed_equation
             # )
 
         elif ncp_type == "min-fb-rr":

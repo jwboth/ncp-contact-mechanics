@@ -34,9 +34,8 @@ class AANewtonSolver(pp.NewtonSolver):
         logger.info("Reset AA")
 
     def solve(self, model) -> tuple[bool, int]:
-        # Check if the model has a minimum fb switch, and update
-        if hasattr(model, "update_min_fb_switch"):
-            model.update_min_fb_switch(active_min=True)
+        if hasattr(model, "update_switch"):
+            model.update_switch(activate=True)
         self.adaptive_alpha = 1.0
         self.new_cycling = False
         is_converged = super().solve(model)
@@ -60,7 +59,7 @@ class AANewtonSolver(pp.NewtonSolver):
         use_aa = aa_depth > 0
         use_relaxation = aa_depth == -1
         use_adaptive_relaxation = aa_depth == -2
-        use_min_fb_switch = aa_depth == -3
+        use_switch = aa_depth == -3
         use_adaptive_cnum = aa_depth == -4
         use_small_change_aa = aa_depth == -5
         use_decreasing_residuals_aa = aa_depth == -6
@@ -69,7 +68,7 @@ class AANewtonSolver(pp.NewtonSolver):
             use_aa
             or use_relaxation
             or use_adaptive_relaxation
-            or use_min_fb_switch
+            or use_switch
             or use_adaptive_cnum
             or use_small_change_aa
             or use_decreasing_residuals_aa
@@ -134,7 +133,7 @@ class AANewtonSolver(pp.NewtonSolver):
                 # else:
                 #    self.new_cycling = False
 
-            if use_min_fb_switch:
+            if use_switch:
                 if hasattr(model, "cycling_window") and model.cycling_window > 0:
                     self.new_cycling = True
 
@@ -207,12 +206,12 @@ class AANewtonSolver(pp.NewtonSolver):
                     f"Apply adaptive relaxation with alpha {self.adaptive_alpha}"
                 )
                 xkp1 = xk + self.adaptive_alpha * nonlinear_increment
-            elif use_min_fb_switch:
-                ic("apply_min_fb_switch", self.new_cycling)
+            elif use_switch:
+                ic("apply_switch", self.new_cycling)
                 if self.new_cycling:
-                    ic("update_min_fb_switch")
-                    if hasattr(model, "update_min_fb_switch"):
-                        model.update_min_fb_switch(active_min=False)
+                    ic("update_switch")
+                    if hasattr(model, "update_switch"):
+                        model.update_switch(activate=False)
                 xkp1 = xk + nonlinear_increment
 
             elif use_adaptive_cnum:

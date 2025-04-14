@@ -132,8 +132,8 @@ class ContactStateDetector:
             )
 
 
-class MinFbSwitch:
-    def min_fb_switch(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
+class Switch:
+    def switch(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Switch between Fischer-Burmeister and min NCP formulations.
 
         Parameters:
@@ -143,22 +143,24 @@ class MinFbSwitch:
             switch: Switch as scalar.
 
         """
-        return pp.ad.TimeDependentDenseArray("active_min", [self.mdg.subdomains()[0]])
+        return pp.ad.TimeDependentDenseArray(
+            "active_switch", [self.mdg.subdomains()[0]]
+        )
 
-    def update_min_fb_switch(self, active_min: bool) -> None:
+    def update_switch(self, activate: bool) -> None:
         for sd in self.mdg.subdomains(return_data=False):
             pp.set_solution_values(
-                name="active_min",
-                values=np.array([int(active_min)]),
+                name="active_switch",
+                values=np.array([int(activate)]),
                 data=self.mdg.subdomain_data(sd),
                 iterate_index=0,
             )
-        logging.info(f"Switched to min NCP: {active_min}")
+        logging.info(f"Switched to min NCP: {activate}")
 
     def update_time_dependent_ad_arrays(self) -> None:
         """Start with min NCP formulation."""
         super().update_time_dependent_ad_arrays()
-        self.update_min_fb_switch(active_min=True)
+        self.update_switch(activate=True)
 
 
 class AdaptiveCnum:

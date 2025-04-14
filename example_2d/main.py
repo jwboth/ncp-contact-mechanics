@@ -52,7 +52,6 @@ class LinearRadialReturnModel(
 
 # NCP Formulations
 class ScaledNCPModel(
-    ncp.MinFbSwitch,
     ncp.NCPNormalContact,
     ncp.NCPTangentialContact2d,
     NonlinearRadialReturnModel,
