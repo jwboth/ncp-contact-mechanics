@@ -128,7 +128,7 @@ for linearization in linearizations:
                         print(f"Diff for {key}:")
                         print(diff[key])
 
-        if files_exist and formulation == "ncp-min-scaled":
+        if files_exist and formulation == "ncp-min":
             # Compare the solver statistics in terms of number of iterations
             # - NOTE this comparison only makes sense when using the same method!
             solver_statistics = json.loads(solver_statistics_filename.read_text())
@@ -164,7 +164,7 @@ for linearization in linearizations:
             failure_overview[combination] = failure
             print(f"Testing formulation: {combination} failed")
 
-        if formulation == "ncp-min-scaled":
+        if formulation == "ncp-min":
             if performance_failure == []:
                 performance_passed.append(combination)
                 print(f"Testing performance: {combination} passed")
