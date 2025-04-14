@@ -38,6 +38,7 @@ performance_failure_overview = {}
 
 for apply_horizontal_stress in horizontal_stresses:
     for mass_unit in mass_units:
+        mass_unit_str = "1" if mass_unit == 1 else "1e+10"
         for formulation in formulations:
             # Run the simulation with the specified formulation
             combination = (apply_horizontal_stress, mass_unit, formulation)
@@ -65,21 +66,21 @@ for apply_horizontal_stress in horizontal_stresses:
             reference_statistics_filename = (
                 Path("reference")
                 / folder.parent
-                / str(mass_unit)
+                / mass_unit_str
                 / "solver_statistics.json"
             )
             reference_solution_filename = {
                 "data_2": Path("reference")
                 / folder.parent
-                / str(mass_unit)
+                / mass_unit_str
                 / "data_2_000003.vtu",
                 "data_3": Path("reference")
                 / folder.parent
-                / str(mass_unit)
+                / mass_unit_str
                 / "data_3_000003.vtu",
                 "mortar_2": Path("reference")
                 / folder.parent
-                / str(mass_unit)
+                / mass_unit_str
                 / "data_mortar_2_000003.vtu",
             }
 
@@ -91,7 +92,7 @@ for apply_horizontal_stress in horizontal_stresses:
                 reference_solution_filename["data_1"] = (
                     Path("reference")
                     / folder.parent
-                    / str(mass_unit)
+                    / mass_unit_str
                     / "data_1_000003.vtu"
                 )
             if (Path("visualization") / folder / "data_mortar_1_000000.vtu").exists():
@@ -101,7 +102,7 @@ for apply_horizontal_stress in horizontal_stresses:
                 reference_solution_filename["mortar_1"] = (
                     Path("reference")
                     / folder.parent
-                    / str(mass_unit)
+                    / mass_unit_str
                     / "data_mortar_1_000003.vtu"
                 )
 
