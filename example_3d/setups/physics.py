@@ -9,7 +9,7 @@ from porepy.models.fluid_mass_balance import FluidMassBalanceEquations
 # ! ---- MATERIAL PARAMETERS ----
 
 fluid_parameters: dict[str, float] = {
-    "compressibility": 0,  # 1e-16,
+    "compressibility": 0,
     "viscosity": 1e-3,
     "density": 998.2e0,
 }
@@ -17,11 +17,11 @@ fluid_parameters: dict[str, float] = {
 solid_parameters: dict[str, float] = {
     "biot_coefficient": 1.0,
     "permeability": 1e-14,
-    "normal_permeability": 1e-14,  # 1e-4, # Ivar: 1e-6
+    "normal_permeability": 1e-14,
     "porosity": 1.0e-2,
     "shear_modulus": 1e14,
     "lame_lambda": 1e14,
-    "residual_aperture": 1e-3,  # 1e-2, # Ivar: 1e-3
+    "residual_aperture": 1e-3,
     "density": 2600,
     "maximum_elastic_fracture_opening": 0e-3,  # Not used
     "fracture_normal_stiffness": 1e3,  # Not used
@@ -37,8 +37,8 @@ injection_schedule = {
     "reference_pressure": 1e7,
 }
 
-principal_background_stress_max_factor = 1.3  # 1.3  # 24e6  # 24 MPa
-principal_background_stress_min_factor = 0.8  # 0.8  # 14e6  # 14 MPa
+principal_background_stress_max_factor = 1.3
+principal_background_stress_min_factor = 0.8
 background_stress_deg = 100 * (np.pi / 180)  # N100 degrees East
 
 numerics_parameters: dict[str, float] = {
