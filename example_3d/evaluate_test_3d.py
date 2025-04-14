@@ -50,6 +50,7 @@ for apply_horizontal_stress in horizontal_stresses:
                 "scipy_sparse",
                 mass_unit,
             )
+            folder = Path(folder).parent
             solver_statistics_filename = (
                 Path("visualization") / folder / "solver_statistics.json"
             )
