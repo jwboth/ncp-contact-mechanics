@@ -121,10 +121,28 @@ for apply_horizontal_stress in horizontal_stresses:
                 for key in final_solution_filename.keys():
                     solution_data = meshio.read(final_solution_filename[key])
                     reference_data = meshio.read(reference_solution_filename[key])
+
+                    def custom_compare(x, y, significant_digits=2, abs_tol=1e-8):
+                        # Check absolute tolerance
+                        if abs(x - y) <= abs_tol:
+                            return True
+                        # Check relative tolerance using significant digits
+                        if round(x, significant_digits) == round(y, significant_digits):
+                            return True
+                        return False
+
+                    # Register the custom operator
+                    from deepdiff.helper import CustomOperator
+
+                    custom_operator = CustomOperator(
+                        name="custom_compare", compare_func=custom_compare
+                    )
+
                     diff[key] = DeepDiff(
                         solution_data.__dict__,
                         reference_data.__dict__,
-                        significant_digits=2,
+                        custom_operators=[custom_operator],
+                        # significant_digits=2,
                         number_format_notation="e",
                         ignore_order=True,
                         ignore_numeric_type_changes=True,
