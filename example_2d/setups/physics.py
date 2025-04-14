@@ -322,4 +322,6 @@ class Physics(
     FlowBC,
     ZeroDisplacementBC,
     NonzeroInitialCondition,
+    pp.constitutive_laws.CubicLawPermeability,  # Basic constitutive law
+    pp.poromechanics.Poromechanics,  # Basic model
 ): ...

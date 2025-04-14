@@ -37,77 +37,68 @@ parser.add_argument(
 args = parser.parse_args()
 
 # Test different formulations
+linearizations = ["picard", "newton"]
 formulations = [
-    ("picard", "rr-nonlinear", 0, "none"),
-    ("picard", "rr-linear", 0, "none"),
-    ("picard", "ncp-min", 0, "origin_and_stick_slip_transition"),
-    ("picard", "ncp-fb-full", 0, "origin_and_stick_slip_transition"),
-    ("picard", "ncp-min-scaled", 0, "origin_and_stick_slip_transition"),
-    ("picard", "ncp-fb-scaled", 0, "origin_and_stick_slip_transition"),
-    ("picard", "ncp-fb-full-scaled", 0, "origin_and_stick_slip_transition"),
-    ("newton", "rr-nonlinear", 0, "none"),
-    ("newton", "rr-linear", 0, "none"),
-    ("newton", "ncp-min", 0, "origin_and_stick_slip_transition"),
-    ("newton", "ncp-fb-full", 0, "origin_and_stick_slip_transition"),
-    ("newton", "ncp-min-scaled", 0, "origin_and_stick_slip_transition"),
-    ("newton", "ncp-fb-scaled", 0, "origin_and_stick_slip_transition"),
-    ("newton", "ncp-fb-full-scaled", 0, "origin_and_stick_slip_transition"),
+    ("rr-nonlinear", "none"),
+    ("rr-linear", "none"),
+    ("ncp-min", "origin_and_stick_slip_transition"),
+    ("ncp-fb-full", "origin_and_stick_slip_transition"),
+    ("ncp-min-scaled", "origin_and_stick_slip_transition"),
+    ("ncp-fb-scaled", "origin_and_stick_slip_transition"),
+    ("ncp-fb-full-scaled", "origin_and_stick_slip_transition"),
 ]
 study = 1
 seed = 4
-passed = []
-not_passed = formulations.copy()
-not_passed_reason = {}
-
+mesh_size = 50
+mass_unit = 1
 pool_instructions = []
 
-for formulation in formulations:
-    # Run the simulation with the specified formulation
-    print(f"Testing formulation: {formulation}")
-    ad_mode, mode, aa, regularization = formulation
-    instructions = [
-        sys.executable,
-        "main.py",
-        "--study",
-        str(study),
-        "--ad-mode",
-        ad_mode,
-        "--mode",
-        mode,
-        "--linear-solver",
-        "scipy_sparse",
-        "--aa",
-        str(aa),
-        "--regularization",
-        regularization,
-        "--tol",
-        str(1e-10),
-        "--cn",
-        str(1.0),
-        "--ct",
-        str(1.0),
-        "--unitary_units",
-        str(True),
-        "--seed",
-        str(seed),
-        "--no_intersections",
-        str(True),
-        "--no_intersections_angle_cutoff",
-        str(0.0),
-        "--mesh_size",
-        str(50),
-        "--output",
-        "visualization",
-        "--num_time_steps",
-        str(3),
-        "--num_iter",
-        str(200),
-        "--asci-export",
-    ]
-    if args.parallel:
-        pool_instructions.append(instructions)
-    else:
-        subprocess.run(instructions)
+for linearization in linearizations:
+    for formulation, regularization in formulations:
+        # Run the simulation with the specified formulation
+        combination = (linearization, formulation, regularization)
+        print(f"Testing formulation: {combination}")
+        instructions = [
+            sys.executable,
+            "main.py",
+            "--study",
+            str(study),
+            "--formulation",
+            formulation,
+            "--linearization",
+            linearization,
+            "--linear-solver",
+            "scipy_sparse",
+            "--regularization",
+            regularization,
+            "--tol",
+            str(1e-10),
+            "--cn",
+            str(1.0),
+            "--ct",
+            str(1.0),
+            "--mass-unit",
+            str(mass_unit),
+            "--seed",
+            str(seed),
+            "--no_intersections",
+            str(True),
+            "--no_intersections_angle_cutoff",
+            str(0.0),
+            "--mesh_size",
+            str(mesh_size),
+            "--output",
+            "visualization",
+            "--num_time_steps",
+            str(3),
+            "--num_iter",
+            str(200),
+            "--asci-export",
+        ]
+        if args.parallel:
+            pool_instructions.append(instructions)
+        else:
+            subprocess.run(instructions)
 
 # Coordinate parallel runs using 'nohup taskset --cpu-list N python instructions (unrolled)'
 # Use for N in range(args.parallel_processors[0], args.parallel_processors[1]+1)
