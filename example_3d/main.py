@@ -202,8 +202,8 @@ if __name__ == "__main__":
 
             SI_units = dict(
                 {
-                    "characteristic_displacement": "m",
-                    "characteristic_contact_traction": "Pa",
+                    "characteristic_displacement": "-",
+                    "characteristic_contact_traction": "-",
                     "open_state_tolerance": "Pa",
                     "contact_mechanics_scaling": "Pa",
                 }
