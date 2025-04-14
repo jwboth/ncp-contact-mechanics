@@ -209,7 +209,8 @@ if __name__ == "__main__":
 
     # Solver parameters
     solver_params = {
-        "nonlinear_solver": pp.NewtonSolver,
+        "nonlinear_solver": ncp.AANewtonSolver,  # pp.NewtonSolver,
+        "aa_depth": 0,  # Triggers stopping simulation if cycling
         "max_iterations": 200,
         "nl_convergence_tol": 1e-6,
         "nl_convergence_tol_rel": 1e-6,
