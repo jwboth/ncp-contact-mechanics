@@ -5,6 +5,7 @@ from main import generate_case_name
 import meshio
 from icecream import ic
 import argparse
+import datetime
 
 argparser = argparse.ArgumentParser(description="Run single fracture test cases.")
 argparser.add_argument(
@@ -35,9 +36,13 @@ formulations = [
 study = 1
 seed = 4
 mesh_size = 50
+
 passed = []
 not_passed = []
 failure_overview = {}
+performance_passed = []
+performance_not_passed = []
+performance_failure_overview = {}
 
 for formulation in formulations:
     # Run the simulation with the specified formulation
@@ -89,6 +94,7 @@ for formulation in formulations:
     # Initiate status
     status = True
     failure = []
+    performance_failure = []
 
     # Check if the files exist
     files_exist = solver_statistics_filename.exists()
@@ -114,6 +120,14 @@ for formulation in formulations:
                 ignore_numeric_type_changes=True,
             )
 
+    if files_exist:
+        for key in final_solution_filename.keys():
+            if diff[key] != {}:
+                failure.append(f"Formulation {formulation} failed for {key}")
+                if args.verbose:
+                    print(f"Diff for {key}:")
+                    print(diff[key])
+
     if files_exist and mode == "ncp-min-scaled":
         # Compare the solver statistics in terms of number of iterations
         # - NOTE this comparison only makes sense when using the same method!
@@ -124,27 +138,23 @@ for formulation in formulations:
                 solver_statistics[time_index]["status"]
                 == reference_statistics[time_index]["status"]
             ):
-                failure.append(f"Solver status mismatch at time index {time_index}")
+                performance_failure.append(
+                    f"Solver status mismatch at time index {time_index} ({solver_statistics[time_index]['status']} vs {reference_statistics[time_index]['status']})"
+                )
             if not (
                 solver_statistics[time_index]["num_iteration"]
                 == reference_statistics[time_index]["num_iteration"]
             ):
-                failure.append(f"Solver iterations mismatch at time index {time_index}")
+                performance_failure.append(
+                    f"Solver iterations mismatch at time index {time_index} ({solver_statistics[time_index]['num_iteration']} vs {reference_statistics[time_index]['num_iteration']})"
+                )
             if not (
                 solver_statistics[time_index]["residual_norms"]
                 == reference_statistics[time_index]["residual_norms"]
             ):
-                failure.append(
-                    f"Solver residual norms mismatch at time index {time_index}"
+                performance_failure.append(
+                    f"Solver residual norms mismatch at time index {time_index} ({solver_statistics[time_index]['residual_norms']} vs {reference_statistics[time_index]['residual_norms']})"
                 )
-
-    if files_exist:
-        for key in final_solution_filename.keys():
-            if diff[key] != {}:
-                failure.append(f"Formulation {formulation} failed for {key}")
-                if args.verbose:
-                    print(f"Diff for {key}:")
-                    print(diff[key])
 
     if failure == []:
         passed.append(formulation)
@@ -152,7 +162,41 @@ for formulation in formulations:
         not_passed.append(formulation)
         failure_overview[formulation] = failure
 
+    if performance_failure == []:
+        performance_passed.append(formulation)
+    else:
+        performance_not_passed.append(formulation)
+        performance_failure_overview[formulation] = performance_failure
+
 # Print the results
 ic(passed)
 ic(not_passed)
 ic(failure_overview)
+
+# Report the results in txt file annotated by the date and time - append if the file exists
+with open(
+    f"test_results_2d.txt",
+    "a",
+) as f:
+    f.write("--------------------------------------------------------\n")
+    f.write(f"Test run on {datetime.datetime.now()}\n")
+    f.write("Passed:\n")
+    for item in passed:
+        f.write(f"{item}\n")
+    f.write("\nNot Passed:\n")
+    for item in not_passed:
+        f.write(f"{item}\n")
+    f.write("\nFailure Overview:\n")
+    for key, value in failure_overview.items():
+        f.write(f"{key}: {value}\n")
+    f.write("\n")
+    f.write("Performance Passed:\n")
+    for item in performance_passed:
+        f.write(f"{item}\n")
+    f.write("\nPerformance Not Passed:\n")
+    for item in performance_not_passed:
+        f.write(f"{item}\n")
+    f.write("\nPerformance Failure Overview:\n")
+    for key, value in performance_failure_overview.items():
+        f.write(f"{key}: {value}\n")
+    f.write("--------------------------------------------------------\n")
