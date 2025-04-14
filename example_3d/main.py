@@ -9,23 +9,12 @@ import numpy as np
 import porepy as pp
 from porepy.numerics.nonlinear import line_search
 from setups.geometry import BedrettoGeometry
-from setups.numerics import (
-    AdaptiveCnum,
-    DarcysLawAd,
-    MinFbSwitch,
-    ReverseElasticModuli,
-)
 from setups.physics import (
     Physics,
     fluid_parameters,
     numerics_parameters,
     solid_parameters,
     injection_schedule,
-)
-from setups.statistics import (
-    AdvancedSolverStatistics,
-    LogPerformanceDataVectorial,
-    ASCIExport,
 )
 import ncp
 
@@ -40,14 +29,14 @@ logging.basicConfig(level=logging.INFO)
 
 class NonlinearRadialReturnModel(
     BedrettoGeometry,  # Geometry
-    AdaptiveCnum,
+    ncp.AdaptiveCnum,
     ncp.ScaledContact,  # Characteristic scalings
     ncp.AuxiliaryContact,  # Yield function, orthognality, and alignment
     ncp.FractureStates,  # Physics based contact states for output only
     ncp.IterationExporting,  # Tailored export
     ncp.LebesgueConvergenceMetrics,  # Convergence metrics
-    LogPerformanceDataVectorial,  # Tailored convergence checks
-    ReverseElasticModuli,  # Characteristic displacement from traction
+    ncp.LogPerformanceDataVectorial,  # Tailored convergence checks
+    ncp.ReverseElasticModuli,  # Characteristic displacement from traction
     Physics,  # Basic model, BC and IC
 ):
     """Simple Bedretto model solved with Huebers nonlinear radial return formulation."""
@@ -60,7 +49,7 @@ class LinearRadialReturnModel(
 
 
 class ScaledNCPModel(
-    MinFbSwitch,
+    ncp.MinFbSwitch,
     ncp.NCPNormalContact,
     ncp.NCPTangentialContact2d,
     NonlinearRadialReturnModel,
@@ -184,7 +173,7 @@ if __name__ == "__main__":
             args.linear_solver,
             args.mass_unit,
         ),
-        "nonlinear_solver_statistics": AdvancedSolverStatistics,
+        "nonlinear_solver_statistics": ncp.AdvancedSolverStatistics,
     }
 
     # Update the numerical parameter if unscaled formulation is used
@@ -292,7 +281,7 @@ if __name__ == "__main__":
 
         case "newton":
 
-            class Model(DarcysLawAd, Model):
+            class Model(ncp.DarcysLawAd, Model):
                 """Enhance with AD of permeability."""
 
         case _:
@@ -383,7 +372,7 @@ if __name__ == "__main__":
     if args.asci_export:
 
         class Model(
-            ASCIExport,
+            ncp.ASCIExport,
             Model,
         ):
             """Add ascii export."""

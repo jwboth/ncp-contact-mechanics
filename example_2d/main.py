@@ -9,16 +9,6 @@ import numpy as np
 import porepy as pp
 from icecream import ic
 from setups.geometry import GeometryFromFile, GeometryFromFile_SingleFracs
-from setups.numerics import (
-    AdaptiveCnum,
-    AdaptiveDarcysLawAd,
-    ContactStateDetector,
-    DarcysLawAd,
-    MinFbSwitch,
-    RegularizedStart,
-    ReverseElasticModuli,
-    ScaledNCPAdapters,
-)
 from setups.physics import (
     ExtendedNumericalConstants,
     Physics,
@@ -26,11 +16,6 @@ from setups.physics import (
     injection_schedule,
     numerics_parameters,
     solid_parameters,
-)
-from setups.statistics import (
-    AdvancedSolverStatistics,
-    LogPerformanceDataVectorial,
-    ASCIExport,
 )
 
 import ncp
@@ -45,14 +30,14 @@ logging.basicConfig(level=logging.INFO)
 
 # Hueber formulation, but with scaled contact conditions
 class ScaledRadialReturnModel(
-    ReverseElasticModuli,  # Characteristic displacement from traction
+    ncp.ReverseElasticModuli,  # Characteristic displacement from traction
     GeometryFromFile,  # Geometry
     Physics,  # BC and IC
     ncp.AuxiliaryContact,  # Yield function, orthognality, and alignment
     ncp.FractureStates,  # Physics based conact states
     ncp.IterationExporting,  # Tailored export
     ncp.LebesgueConvergenceMetrics,  # Convergence metrics
-    LogPerformanceDataVectorial,  # Tailored convergence checks
+    ncp.LogPerformanceDataVectorial,  # Tailored convergence checks
     pp.constitutive_laws.CubicLawPermeability,  # Basic constitutive law
     pp.poromechanics.Poromechanics,  # Basic model
 ):
@@ -76,8 +61,8 @@ class ScaledLinearRadialReturnModel(
 #
 # NCP Formulations
 class ScaledNCPModel(
-    AdaptiveCnum,
-    MinFbSwitch,
+    ncp.AdaptiveCnum,
+    ncp.MinFbSwitch,
     ncp.ScaledContact,
     ncp.NCPNormalContact,
     ncp.NCPTangentialContact2d,
@@ -319,7 +304,7 @@ if __name__ == "__main__":
     )
     model_params["folder_name"] = f"{args.output}/" + case_name
     Path(model_params["folder_name"]).mkdir(parents=True, exist_ok=True)
-    model_params["nonlinear_solver_statistics"] = AdvancedSolverStatistics
+    model_params["nonlinear_solver_statistics"] = ncp.AdvancedSolverStatistics
 
     # Solver parameters
     solver_params = {
@@ -338,14 +323,14 @@ if __name__ == "__main__":
 
     if args.asci_export:
 
-        class ScaledRadialReturnModel(ASCIExport, ScaledRadialReturnModel): ...
+        class ScaledRadialReturnModel(ncp.ASCIExport, ScaledRadialReturnModel): ...
 
-        class NCPModel(ASCIExport, NCPModel): ...
+        class NCPModel(ncp.ASCIExport, NCPModel): ...
 
-        class ScaledNCPModel(ASCIExport, ScaledNCPModel): ...
+        class ScaledNCPModel(ncp.ASCIExport, ScaledNCPModel): ...
 
         class ScaledLinearRadialReturnModel(
-            ASCIExport, ScaledLinearRadialReturnModel
+            ncp.ASCIExport, ScaledLinearRadialReturnModel
         ): ...
 
     if no_intersections:
@@ -372,28 +357,28 @@ if __name__ == "__main__":
 
         case "newton":
 
-            class ScaledNCPModel(DarcysLawAd, ScaledNCPModel): ...
+            class ScaledNCPModel(ncp.DarcysLawAd, ScaledNCPModel): ...
 
-            class NCPModel(DarcysLawAd, NCPModel): ...
+            class NCPModel(ncp.DarcysLawAd, NCPModel): ...
 
-            class ScaledRadialReturnModel(DarcysLawAd, ScaledRadialReturnModel): ...
+            class ScaledRadialReturnModel(ncp.DarcysLawAd, ScaledRadialReturnModel): ...
 
             class ScaledLinearRadialReturnModel(
-                DarcysLawAd, ScaledLinearRadialReturnModel
+                ncp.DarcysLawAd, ScaledLinearRadialReturnModel
             ): ...
 
         case "newton_adaptive":
 
-            class ScaledNCPModel(AdaptiveDarcysLawAd, ScaledNCPModel): ...
+            class ScaledNCPModel(ncp.AdaptiveDarcysLawAd, ScaledNCPModel): ...
 
-            class NCPModel(AdaptiveDarcysLawAd, NCPModel): ...
+            class NCPModel(ncp.AdaptiveDarcysLawAd, NCPModel): ...
 
             class ScaledRadialReturnModel(
-                AdaptiveDarcysLawAd, ScaledRadialReturnModel
+                ncp.AdaptiveDarcysLawAd, ScaledRadialReturnModel
             ): ...
 
             class ScaledLinearRadialReturnModel(
-                AdaptiveDarcysLawAd, ScaledLinearRadialReturnModel
+                ncp.AdaptiveDarcysLawAd, ScaledLinearRadialReturnModel
             ): ...
 
         case _:
