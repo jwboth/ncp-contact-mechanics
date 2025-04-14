@@ -43,7 +43,6 @@ performance_failure_overview = {}
 for linearization in linearizations:
     for formulation in formulations:
         # Run the simulation with the specified formulation
-        print(f"Testing formulation: {formulation}")
         formulation, regularization = formulation
 
         # Fetch the solver statistics
@@ -157,16 +156,20 @@ for linearization in linearizations:
 
         if failure == []:
             passed.append(formulation)
+            print(f"Testing formulation: {formulation} passed")
         else:
             not_passed.append(formulation)
             failure_overview[formulation] = failure
+            print(f"Testing formulation: {formulation} failed")
 
         if formulation == "ncp-min-scaled":
             if performance_failure == []:
                 performance_passed.append(formulation)
+                print(f"Testing performance: {formulation} passed")
             else:
                 performance_not_passed.append(formulation)
                 performance_failure_overview[formulation] = performance_failure
+                print(f"Testing performance: {formulation} failed")
 
 # Print the results
 ic(passed)
