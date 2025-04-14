@@ -63,7 +63,10 @@ for apply_horizontal_stress in horizontal_stresses:
 
             # Fetch references
             reference_statistics_filename = (
-                Path("reference") / folder.parent / "solver_statistics.json"
+                Path("reference")
+                / folder.parent
+                / str(mass_unit)
+                / "solver_statistics.json"
             )
             reference_solution_filename = {
                 "data_2": Path("reference")
