@@ -176,10 +176,15 @@ ic(performance_passed)
 ic(performance_not_passed)
 ic(performance_failure_overview)
 
+
 # Fetch latest git log message
 def get_latest_git_commit_message():
-    result = subprocess.run(["git", "log", "-1", "--pretty=%B"], capture_output=True, text=True)
-    return result.stdout.strip()
+    result = subprocess.run(
+        ["git", "log", "-1", "--pretty=%B"], capture_output=True, text=True
+    )
+    return result.stdout.strip()
+
+
 latest_commit_message = get_latest_git_commit_message()
 
 # Report the results in txt file annotated by the date and time - append if the file exists
