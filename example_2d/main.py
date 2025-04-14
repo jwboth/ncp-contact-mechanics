@@ -31,7 +31,6 @@ logging.basicConfig(level=logging.INFO)
 # Hueber formulation, but with scaled contact conditions
 class NonlinearRadialReturnModel(
     GeometryFromFile,  # Geometry
-    ncp.AdaptiveCnum,
     ncp.ScaledContact,
     ncp.AuxiliaryContact,  # Yield function, orthognality, and alignment
     ncp.FractureStates,  # Physics based conact states

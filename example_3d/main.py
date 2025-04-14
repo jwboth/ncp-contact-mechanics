@@ -29,7 +29,6 @@ logging.basicConfig(level=logging.INFO)
 
 class NonlinearRadialReturnModel(
     BedrettoGeometry,  # Geometry
-    ncp.AdaptiveCnum,
     ncp.ScaledContact,  # Characteristic scalings
     ncp.AuxiliaryContact,  # Yield function, orthognality, and alignment
     ncp.FractureStates,  # Physics based contact states for output only
