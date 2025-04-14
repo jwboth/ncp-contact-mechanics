@@ -41,9 +41,8 @@ performance_not_passed = []
 performance_failure_overview = {}
 
 for linearization in linearizations:
-    for formulation in formulations:
-        # Run the simulation with the specified formulation
-        formulation, regularization = formulation
+    for formulation, regularization in formulations:
+        combination = (linearization, formulation, regularization)
 
         # Fetch the solver statistics
         folder = generate_case_name(
@@ -155,21 +154,21 @@ for linearization in linearizations:
                     )
 
         if failure == []:
-            passed.append(formulation)
-            print(f"Testing formulation: {formulation} passed")
+            passed.append(combination)
+            print(f"Testing formulation: {combination} passed")
         else:
-            not_passed.append(formulation)
-            failure_overview[formulation] = failure
-            print(f"Testing formulation: {formulation} failed")
+            not_passed.append(combination)
+            failure_overview[combination] = failure
+            print(f"Testing formulation: {combination} failed")
 
         if formulation == "ncp-min-scaled":
             if performance_failure == []:
-                performance_passed.append(formulation)
-                print(f"Testing performance: {formulation} passed")
+                performance_passed.append(combination)
+                print(f"Testing performance: {combination} passed")
             else:
-                performance_not_passed.append(formulation)
-                performance_failure_overview[formulation] = performance_failure
-                print(f"Testing performance: {formulation} failed")
+                performance_not_passed.append(combination)
+                performance_failure_overview[combination] = performance_failure
+                print(f"Testing performance: {combination} failed")
 
 # Print the results
 ic(passed)

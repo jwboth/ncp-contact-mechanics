@@ -190,7 +190,7 @@ for apply_horizontal_stress in horizontal_stresses:
                     print(f"Performance testing: {combination} passed")
                 else:
                     performance_not_passed.append(combination)
-                    performance_failure_overview[combination] = failure
+                    performance_failure_overview[combination] = performance_failure
                     print(f"Performance testing: {combination} failed")
 
 # Print the results
