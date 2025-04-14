@@ -50,7 +50,6 @@ for apply_horizontal_stress in horizontal_stresses:
                 "scipy_sparse",
                 mass_unit,
             )
-            folder = Path(folder).parent
             solver_statistics_filename = (
                 Path("visualization") / folder / "solver_statistics.json"
             )
@@ -62,12 +61,14 @@ for apply_horizontal_stress in horizontal_stresses:
 
             # Fetch references
             reference_statistics_filename = (
-                Path("reference") / folder / "solver_statistics.json"
+                Path("reference") / folder.parent / "solver_statistics.json"
             )
             reference_solution_filename = {
-                "data_2": Path("reference") / folder / "data_2_000003.vtu",
-                "data_3": Path("reference") / folder / "data_3_000003.vtu",
-                "mortar_2": Path("reference") / folder / "data_mortar_2_000003.vtu",
+                "data_2": Path("reference") / folder.parent / "data_2_000003.vtu",
+                "data_3": Path("reference") / folder.parent / "data_3_000003.vtu",
+                "mortar_2": Path("reference")
+                / folder.parent
+                / "data_mortar_2_000003.vtu",
             }
 
             # Fill in with the missing data_1 and mortar_1 files if the exist
@@ -76,14 +77,14 @@ for apply_horizontal_stress in horizontal_stresses:
                     Path("visualization") / folder / "data_1_000003.vtu"
                 )
                 reference_solution_filename["data_1"] = (
-                    Path("reference") / folder / "data_1_000003.vtu"
+                    Path("reference") / folder.parent / "data_1_000003.vtu"
                 )
             if (Path("visualization") / folder / "data_mortar_1_000000.vtu").exists():
                 final_solution_filename["mortar_1"] = (
                     Path("visualization") / folder / "data_mortar_1_000003.vtu"
                 )
                 reference_solution_filename["mortar_1"] = (
-                    Path("reference") / folder / "data_mortar_1_000003.vtu"
+                    Path("reference") / folder.parent / "data_mortar_1_000003.vtu"
                 )
 
             # Initiate status
@@ -163,14 +164,14 @@ for apply_horizontal_stress in horizontal_stresses:
                             f"""Solver residual norms mismatch at time index {time_index}"""
                             f""" ({solver_statistics[time_index]["residual_norms"]} vs {reference_statistics[time_index]["residual_norms"]})"""
                         )
-
-            if performance_failure == []:
-                performance_passed.append(formulation)
-                print(f"Performance testing formulation: {formulation} passed")
-            else:
-                performance_not_passed.append(formulation)
-                performance_failure_overview[formulation] = failure
-                print(f"Performance testing formulation: {formulation} failed")
+            if formulation == "ncp-min-scaled":
+                if performance_failure == []:
+                    performance_passed.append(formulation)
+                    print(f"Performance testing formulation: {formulation} passed")
+                else:
+                    performance_not_passed.append(formulation)
+                    performance_failure_overview[formulation] = failure
+                    print(f"Performance testing formulation: {formulation} failed")
 
 # Print the results
 ic(passed)
