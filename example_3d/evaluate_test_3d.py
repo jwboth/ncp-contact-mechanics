@@ -119,18 +119,18 @@ for apply_horizontal_stress in horizontal_stresses:
             if files_exist:
                 for key in final_solution_filename.keys():
                     if diff[key] != {}:
-                        failure.append(f"Formulation {formulation} failed for {key}")
+                        failure.append(f"diff failed for {key}")
                         if args.verbose:
                             print(f"Diff for {key}:")
                             print(diff[key])
 
             if failure == []:
-                passed.append(formulation)
-                print(f"Testing formulation: {formulation} passed")
+                passed.append(combination)
+                print(f"Testing: {combination} passed")
             else:
-                not_passed.append(formulation)
-                failure_overview[formulation] = failure
-                print(f"Testing formulation: {formulation} failed")
+                not_passed.append(combination)
+                failure_overview[combination] = failure
+                print(f"Testing: {combination} failed")
 
             if files_exist and formulation == "ncp-min-scaled":
                 # Compare the solver statistics in terms of number of iterations
@@ -166,12 +166,12 @@ for apply_horizontal_stress in horizontal_stresses:
                         )
             if formulation == "ncp-min-scaled":
                 if performance_failure == []:
-                    performance_passed.append(formulation)
-                    print(f"Performance testing formulation: {formulation} passed")
+                    performance_passed.append(combination)
+                    print(f"Performance testing: {combination} passed")
                 else:
-                    performance_not_passed.append(formulation)
-                    performance_failure_overview[formulation] = failure
-                    print(f"Performance testing formulation: {formulation} failed")
+                    performance_not_passed.append(combination)
+                    performance_failure_overview[combination] = failure
+                    print(f"Performance testing: {combination} failed")
 
 # Print the results
 ic(passed)
