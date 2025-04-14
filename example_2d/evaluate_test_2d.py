@@ -173,6 +173,9 @@ for formulation in formulations:
 ic(passed)
 ic(not_passed)
 ic(failure_overview)
+ic(performance_passed)
+ic(performance_not_passed)
+ic(performance_failure_overview)
 
 # Report the results in txt file annotated by the date and time - append if the file exists
 with open(
