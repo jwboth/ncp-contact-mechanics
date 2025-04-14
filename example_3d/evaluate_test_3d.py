@@ -39,7 +39,7 @@ performance_failure_overview = {}
 
 for apply_horizontal_stress in horizontal_stresses:
     for mass_unit in mass_units:
-        mass_unit_str = "1" if mass_unit == 1 else "1e+10"
+        mass_unit_str = "1"  # if mass_unit == 1 else "1e+10"
         for formulation in formulations:
             # Run the simulation with the specified formulation
             combination = (apply_horizontal_stress, mass_unit, formulation)
