@@ -42,14 +42,14 @@ class IterationExporting:
         data = super().data_to_export()
 
         # Use scaled traction
-        # TODO - add to PorePy
         data = [d for d in data if d[1] != "contact_traction"]
         for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
             data.append(
                 (
                     sd,
                     "contact_traction",
-                    self.characteristic_contact_traction([sd]).value(
+                    self.units.convert_units(1, "Pa^-1")
+                    * self.characteristic_contact_traction([sd]).value(
                         self.equation_system
                     )
                     * self.contact_traction([sd]).value(self.equation_system),
