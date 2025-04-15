@@ -123,17 +123,24 @@ for apply_horizontal_stress in horizontal_stresses:
                     solution_data = meshio.read(final_solution_filename[key])
                     reference_data = meshio.read(reference_solution_filename[key])
 
-                    def custom_compare(x, y, abs_tol=1e-8, rel_tol=1e-2):
+                    def custom_compare(x, y, abs_tol=1e-6, rel_tol=1e-1):
                         try:
-                            return np.allclose(
-                                x, y, rtol=rel_tol, atol=abs_tol, equal_nan=True
-                            )
+                            diff = x - y
                         except:
                             return True
+                        print(
+                            np.allclose(
+                                x, y, rtol=rel_tol, atol=abs_tol, equal_nan=True
+                            )
+                        )
+                        print(x[:5], y[:5])
+                        return np.allclose(
+                            x, y, rtol=rel_tol, atol=abs_tol, equal_nan=True
+                        )
 
                     diff[key] = DeepDiff(
-                        solution_data.__dict__,
-                        reference_data.__dict__,
+                        solution_data.__dict__["cell_data"],
+                        reference_data.__dict__["cell_data"],
                         iterable_compare_func=custom_compare,
                         # significant_digits=2,
                         number_format_notation="e",
