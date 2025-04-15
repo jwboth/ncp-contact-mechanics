@@ -89,11 +89,6 @@ class NCPNormalContact:
     ) -> pp.ad.Operator:
         """Alternative (NCP) implementation for normal contact."""
 
-        # Fracture intersection cells
-        fracture_intersection_cells = pp.ad.TimeDependentDenseArray(
-            "fracture_intersection_cells", subdomains
-        )
-
         # Variables
         nd_vec_to_normal = self.normal_component(subdomains)
         t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
@@ -255,11 +250,6 @@ class NCPTangentialContact2d:
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Alternative (NCP) implementation for tangential contact."""
-
-        # Fracture intersection cells
-        fracture_intersection_cells = pp.ad.TimeDependentDenseArray(
-            "fracture_intersection_cells", subdomains
-        )
 
         # Basis vector combinations
         num_cells = sum([sd.num_cells for sd in subdomains])
@@ -434,18 +424,6 @@ class NCPTangentialContact2d:
                 yield_criterion,
                 scaled_orthogonality
                 - f_norm(c_num_to_one @ u_t_increment) * friction_bound,
-            )
-
-        elif ncp_type == "min-no-intersections":
-            # Attempt to turn off contact around fracture intersections:
-            closed_equation: pp.ad.Operator = (
-                (pp.ad.Scalar(1.0) - fracture_intersection_cells)
-                * ncp.min(
-                    yield_criterion,
-                    scaled_orthogonality
-                    - f_norm(c_num_to_one @ u_t_increment) * friction_bound,
-                )
-                + fracture_intersection_cells * t_t  # u_t_increment
             )
 
         elif ncp_type == "min-sqrt":
