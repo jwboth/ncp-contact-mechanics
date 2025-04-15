@@ -153,7 +153,7 @@ for apply_horizontal_stress in horizontal_stresses:
                         if not np.allclose(sol_data, ref_data, rtol=1e-2, atol=1e-6):
                             diff[key][data_key] = np.linalg.norm(
                                 np.concatenate(sol_data) - np.concatenate(ref_data)
-                            )
+                            ) / (1e-16 + np.linalg.norm(np.concatenate(ref_data)))
 
             #                    def custom_compare(x, y, abs_tol=1e-6, rel_tol=1e-1):
             #                        try:
