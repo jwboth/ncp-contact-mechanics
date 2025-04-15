@@ -188,9 +188,11 @@ class AuxiliaryContact:
             subdomains,
             dim=self.nd - 1,  # type: ignore[call-arg]
         )
-        nd_to_scalar_sum = pp.ad.sum_operator_list(
-            [e.T for e in tangential_basis]  # type: ignore[call-arg]
-        )
+        # nd_to_scalar_sum = pp.ad.sum_operator_list(
+        #     [e.T for e in tangential_basis]  # type: ignore[call-arg]
+        # )
+        e_0 = tangential_basis[0]
+        e_1 = tangential_basis[-1]
 
         # Orthogonality condition
         if scaled:
@@ -199,11 +201,13 @@ class AuxiliaryContact:
             u_t_increment_scaled_to_one = (
                 scalar_to_tangential @ c_num_to_one
             ) * u_t_increment
-            orthogonality = nd_to_scalar_sum @ (t_t * u_t_increment_scaled_to_one)
-            orthogonality.set_name("scaled orthogonality")
+            orthogonality_vector = t_t * u_t_increment_scaled_to_one
+            orthogonality_vector.set_name("scaled orthogonality vector")
         else:
-            orthogonality = nd_to_scalar_sum @ (t_t * u_t_increment)
-            orthogonality.set_name("orthogonality")
+            orthogonality_vector = t_t * u_t_increment
+            orthogonality_vector.set_name("orthogonality vector")
+        orthogonality = e_0.T @ orthogonality_vector + e_1.T @ orthogonality_vector
+        orthogonality.set_name("orthogonality")
         return orthogonality
 
     def alignment(self, subdomains: list[pp.Grid]):
