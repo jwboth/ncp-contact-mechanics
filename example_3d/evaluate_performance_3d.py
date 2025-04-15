@@ -12,6 +12,12 @@ argparser.add_argument(
     action="store_true",
     help="Print detailed information about the test results.",
 )
+argparser.add_argument(
+    "--num-fractures",
+    type=int,
+    default=6,
+    help="Number of fractures (1-6 [default]).",
+)
 args = argparser.parse_args()
 
 # Test different formulations
@@ -27,7 +33,7 @@ formulations = [
     "ncp-fb-unscaled",
 ]
 mass_units = [1, 1e10]
-num_fractures = 2
+num_fractures = args.num_fractures
 performance = {}
 
 for apply_horizontal_stress in horizontal_stresses:
@@ -82,7 +88,7 @@ latest_commit_message = get_latest_git_commit_message()
 
 # Report the results in txt file annotated by the date and time - append if the file exists
 with open(
-    f"performance_results_3d.txt",
+    f"performance_results_3d_{args.num_fractures}.txt",
     "a",
 ) as f:
     f.write("--------------------------------------------------------\n")
