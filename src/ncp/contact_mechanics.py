@@ -39,6 +39,7 @@ class ScaledContact:
         As the normal contact, but without the shear modulus.
 
         """
+        # TODO pick a characteristic distance.
         # characteristic_distance = self.characteristic_jump(subdomains)
         characteristic_distance = self.characteristic_displacement(subdomains)
         # val = self.cnum_t(subdomains) / characteristic_distance
@@ -343,8 +344,6 @@ class NCPTangentialContact:
 
         # Yield criterion
         yield_criterion = self.yield_criterion(subdomains)
-        # TODO: Use c_num_to_one here!?
-        # TODO: Use (scaled) orthogonality here!?
         # TODO: 3d case general?
         if self.nd == 2:
             modified_yield_criterion = (
@@ -358,9 +357,9 @@ class NCPTangentialContact:
             raise NotImplementedError(f"Unknown dimension: {self.nd}")
 
         # Principled choices for open, stick, slip
-        characteristic_open = self.contact_mechanics_open_state_characteristic(
-            subdomains
-        )
+
+        # NOTE: Scalar variant of self.contact_mechanics_open_state_characteristic(subdomains)
+        characteristic_open = f_characteristic(f_max(friction_bound, zeros_frac))
         characteristic_closed = (
             ones_frac - self.contact_mechanics_open_state_characteristic(subdomains)
         )
