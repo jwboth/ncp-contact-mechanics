@@ -645,9 +645,7 @@ class LinearRadialReturnTangentialContact:
         # but the row corresponding to each cell will be non-zero in all rows
         # corresponding to the tangential basis vectors of this cell. EK: mypy insists
         # that the argument to sum should be a list of booleans. Ignore this error.
-        scalar_to_tangential = pp.ad.sum_operator_list(
-            [e_i for e_i in tangential_basis]
-        )
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
 
         # Variables: The tangential component of the contact traction and the plastic
         # displacement jump.
@@ -670,22 +668,11 @@ class LinearRadialReturnTangentialContact:
         # Expanding using only left multiplication to with scalar_to_tangential does not
         # work for an array, unlike the operators below. Arrays need right
         # multiplication as well.
-        c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
-
-        # The numerical parameter is a cell-wise scalar which must be extended to a
-        # vector quantity to be used in the equation (multiplied from the right).
-        # Spelled out, from the right: Restrict the vector quantity to one dimension in
-        # the tangential plane (e_i.T), multiply with the numerical parameter, prolong
-        # to the full vector quantity (e_i), and sum over all all directions in the
-        # tangential plane. EK: mypy insists that the argument to sum should be a list
-        # of booleans. Ignore this error.
-        c_num = pp.ad.sum_operator_list(
-            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
-        )
+        c_num = self.contact_mechanics_numerical_constant(subdomains)
 
         # Combine the above into expressions that enter the equation. c_num will
         # effectively be a sum of SparseArrays, thus we use a matrix-vector product @
-        tangential_sum = t_t + c_num @ u_t_increment
+        tangential_sum = t_t + (scalar_to_tangential @ c_num) * u_t_increment
 
         norm_tangential_sum = f_norm(tangential_sum)
         norm_tangential_sum.set_name("norm_tangential")
@@ -694,10 +681,9 @@ class LinearRadialReturnTangentialContact:
         b_p.set_name("bp")
 
         # For the use of @, see previous comment.
-        min_term = (
+        min_term = scalar_to_tangential @ (
             pp.ad.Scalar(-1.0)
-            * scalar_to_tangential
-            @ f_max(
+            * f_max(
                 pp.ad.Scalar(-1.0) * ones_frac,
                 pp.ad.Scalar(-1.0) * b_p / norm_tangential_sum,
             )
