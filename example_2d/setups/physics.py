@@ -1,38 +1,9 @@
-from dataclasses import dataclass
-from typing import Callable, ClassVar
+from typing import Callable
 
 import numpy as np
 import porepy as pp
 
 # ! ---- MATERIAL PARAMETERS ----
-
-# From I. Stefansson (2024)
-# fluid_parameters: dict[str, float] = {
-#    "compressibility": 1e-6,
-#    "viscosity": 1e-1,
-#    "density": 1.0e0,
-# }
-#
-# solid_parameters: dict[str, float] = {
-#    "biot_coefficient": 0.8,
-#    "permeability": 1e-10,
-#    "normal_permeability": 1e-6,  # 1e-4, # Ivar: 1e-6
-#    "porosity": 1.0e-2,
-#    "shear_modulus": 2e6,
-#    "lame_lambda": 2e6,
-#    "residual_aperture": 1e-4,  # 1e-2, # Ivar: 1e-3
-#    "density": 1e0,
-#    "maximum_elastic_fracture_opening": 0e-3,  # Not used
-#    "fracture_normal_stiffness": 1e3,  # Not used
-#    "fracture_tangential_stiffness": -1,
-#    "fracture_gap": 0e-3,  # Equals the maximum fracture closure.
-#    "dilation_angle": 0.1,
-#    "friction_coefficient": 1.0,
-#    # "open_state_tolerance": 1e-10,  # Numerical method parameter
-#    "characteristic_displacement": 1.0,
-#    "characteristic_contact_traction": 1.0,
-# }
-# injection_pressure = 1e3
 
 fluid_parameters: dict[str, float] = {
     "compressibility": 1e-10,
@@ -43,11 +14,11 @@ fluid_parameters: dict[str, float] = {
 solid_parameters: dict[str, float] = {
     "biot_coefficient": 0.8,
     "permeability": 1e-14,
-    "normal_permeability": 1e-14,  # 1e-4, # Ivar: 1e-6
+    "normal_permeability": 1e-14,
     "porosity": 1.0e-2,
     "shear_modulus": 1e10,
     "lame_lambda": 1e10,
-    "residual_aperture": 1e-3,  # 1e-2, # Ivar: 1e-3
+    "residual_aperture": 1e-3,
     "density": 1e0,
     "maximum_elastic_fracture_opening": 0e-3,  # Not used
     "fracture_normal_stiffness": 1e3,  # Not used
@@ -63,63 +34,10 @@ injection_schedule = {
 }
 
 numerics_parameters: dict[str, float] = {
-    # "open_state_tolerance": 1e-10,  # Numerical method parameter
+    "open_state_tolerance": 1e-10,  # Numerical method parameter
     "characteristic_displacement": 1.0,
     "characteristic_contact_traction": 1.0,
 }
-
-
-# ## From Zabegaev et al. (2025)
-# fluid_parameters: dict[str, float] = {
-#     "compressibility": 0.0,
-#     "density": 998.2,
-#     "viscosity": 1e-1,
-#     "density": 1.0e0,
-# }
-#
-# solid_parameters: dict[str, float] = {
-#     "shear_modulus": 1.2e10,
-#     "lame_lambda": 1.2e10,
-#     "dilation_angle": 0.1,
-#     "friction_coefficient": 0.577,
-#     "residual_aperture": 1e-4,  # 1e-2, # Ivar: 1e-3
-#     "normal_permeability": 1e-4,  # 1e-4, # Ivar: 1e-6
-#     "permeability": 1e-14,
-#     "biot_coefficient": 0.47,
-#     "porosity": 1.3e-2,
-#     "density": 2600,
-#     "maximum_elastic_fracture_opening": 0e-3,  # Not used
-#     "fracture_normal_stiffness": 1e3,  # Not used
-#     "fracture_tangential_stiffness": -1,
-#     "fracture_gap": 1e-4,  # Equals the maximum fracture closure.
-#     # "open_state_tolerance": 1e-10,  # Numerical method parameter
-#     "characteristic_displacement": 1.0,
-#     "characteristic_contact_traction": 1.0,
-# }
-
-
-@dataclass(kw_only=True, eq=False)
-class ExtendedNumericalConstants(pp.NumericalConstants):
-    contact_mechanics_scaling_t: float
-
-    SI_units: ClassVar[dict[str, str]] = dict(
-        {
-            "characteristic_displacement": "m",
-            "characteristic_contact_traction": "Pa",
-            "open_state_tolerance": "-",
-            "contact_mechanics_scaling": "-",
-            "contact_mechanics_scaling_t": "-",
-        }
-    )
-
-    @property
-    def default_constants(self):
-        default_constants = super().default_constants
-        default_constants.update({"contact_mechanics_scaling_t": 1.0})
-        return default_constants
-
-    def contact_mechanics_scaling_t(self):
-        return self.constants["contact_mechanics_scaling_t"]
 
 
 class NonzeroInitialCondition:
@@ -150,12 +68,8 @@ class NonzeroInitialCondition:
             Operator for initial contact traction.
 
         """
-        # TODO: Important?
         sd = subdomains[0]
         traction_vals = np.zeros((self.nd, sd.num_cells))
-        # self.characteristic_traction(subdomains).value(
-        #    self.equation_system
-        # )
         return traction_vals.ravel("F")
 
 

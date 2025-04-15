@@ -10,7 +10,6 @@ import porepy as pp
 from icecream import ic
 from setups.geometry import GeometryFromFile, GeometryFromFile_SingleFracs
 from setups.physics import (
-    ExtendedNumericalConstants,
     Physics,
     fluid_parameters,
     injection_schedule,
@@ -215,7 +214,7 @@ if __name__ == "__main__":
             "rr-linear",
             "ncp-min",
             "ncp-fb-partial",
-            "ncp-fb-full",
+            "ncp-fb",
         ]
         else 1.0
     )
@@ -227,7 +226,7 @@ if __name__ == "__main__":
             "rr-linear",
             "ncp-min",
             "ncp-fb-partial",
-            "ncp-fb-full",
+            "ncp-fb",
         ]
         else tol * injection_schedule["reference_pressure"]
     )
@@ -235,12 +234,11 @@ if __name__ == "__main__":
         {
             "open_state_tolerance": open_state_tolerance,
             "contact_mechanics_scaling": cn,
-            "contact_mechanics_scaling_t": ct,
             "characteristic_contact_traction": characteristic_contact_traction,
         }
     )
 
-    model_params["material_constants"]["numerical"] = ExtendedNumericalConstants(
+    model_params["material_constants"]["numerical"] = pp.NumericalConstants(
         **numerics_parameters
     )
 
