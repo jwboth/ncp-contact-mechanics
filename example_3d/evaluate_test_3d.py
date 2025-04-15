@@ -147,58 +147,44 @@ for apply_horizontal_stress in horizontal_stresses:
                     solution_data = meshio.read(final_solution_filename[key])
                     reference_data = meshio.read(reference_solution_filename[key])
 
-                    for data_key in data_keys[key]:
-                        sol_data = solution_data.__dict__["cell_data"][data_key]
-                        ref_data = reference_data.__dict__["cell_data"][data_key]
-                        rel_norm_check = (
-                            np.linalg.norm(
-                                np.concatenate(sol_data) - np.concatenate(ref_data)
-                            )
-                            / (1e-16 + np.linalg.norm(np.concatenate(ref_data)))
-                            < 1e-6
-                        )
-                        all_close_check = np.allclose(
-                            sol_data, ref_data, rtol=1e-2, atol=1e-6, equal_nan=True
-                        )
-                        if not (all_close_check or rel_norm_check):
-                            diff[key][data_key] = (
-                                np.linalg.norm(
-                                    np.concatenate(sol_data) - np.concatenate(ref_data)
-                                ),
-                                np.linalg.norm(
-                                    np.concatenate(sol_data) - np.concatenate(ref_data)
-                                ),
+                    diff[key] = DeepDiff(
+                        solution_data.__dict__["cell_data"],
+                        reference_data.__dict__["cell_data"],
+                        significant_digits=2,
+                        number_format_notation="e",
+                        ignore_order=True,
+                        ignore_numeric_type_changes=True,
+                    )
+
+                    if diff[key] != {}:
+                        diff[key] = {}
+                        for data_key in data_keys[key]:
+                            sol_data = solution_data.__dict__["cell_data"][data_key]
+                            ref_data = reference_data.__dict__["cell_data"][data_key]
+                            rel_norm_check = (
                                 np.linalg.norm(
                                     np.concatenate(sol_data) - np.concatenate(ref_data)
                                 )
-                                / (1e-16 + np.linalg.norm(np.concatenate(ref_data))),
+                                / (1e-16 + np.linalg.norm(np.concatenate(ref_data)))
+                                < 1e-6
                             )
-
-            #                    def custom_compare(x, y, abs_tol=1e-6, rel_tol=1e-1):
-            #                        try:
-            #                            diff = x - y
-            #                        except:
-            #                            return True
-            #                        print(
-            #                            np.allclose(
-            #                                x, y, rtol=rel_tol, atol=abs_tol, equal_nan=True
-            #                            )
-            #                        )
-            #
-            #                        print(x[:5], y[:5])
-            #                        return np.allclose(
-            #                            x, y, rtol=rel_tol, atol=abs_tol, equal_nan=True
-            #                        )
-            #
-            #                    diff[key] = DeepDiff(
-            #                        solution_data.__dict__["cell_data"],
-            #                        reference_data.__dict__["cell_data"],
-            #                        iterable_compare_func=custom_compare,
-            #                        # significant_digits=2,
-            #                        number_format_notation="e",
-            #                        ignore_order=True,
-            #                        ignore_numeric_type_changes=True,
-            #                    )
+                            all_close_check = np.allclose(
+                                sol_data, ref_data, rtol=1e-2, atol=1e-6, equal_nan=True
+                            )
+                            if not (all_close_check or rel_norm_check):
+                                diff[key][data_key] = (
+                                    np.linalg.norm(
+                                        np.concatenate(sol_data)
+                                        - np.concatenate(ref_data)
+                                    ),
+                                    np.linalg.norm(
+                                        np.concatenate(sol_data)
+                                        - np.concatenate(ref_data)
+                                    )
+                                    / (
+                                        1e-16 + np.linalg.norm(np.concatenate(ref_data))
+                                    ),
+                                )
 
             if files_exist:
                 for key in final_solution_filename.keys():
