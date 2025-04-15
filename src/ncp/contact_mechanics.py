@@ -227,7 +227,7 @@ class AuxiliaryContact:
         )
         scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
         c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
-        scaled_u_t_increment = (scalar_to_tangential @ c_num_to_one) u_t_increment
+        scaled_u_t_increment = (scalar_to_tangential @ c_num_to_one) * u_t_increment
 
         e_0 = tangential_basis[0]
         e_1 = tangential_basis[1]
@@ -321,9 +321,7 @@ class NCPTangentialContact:
         # the numerical constant may be scaled differently.
 
         # c_num_to_traction essentially scales displacement increments to be of unit of tractions
-        c_num_to_traction = self.contact_mechanics_numerical_constant(
-            subdomains
-        )
+        c_num_to_traction = self.contact_mechanics_numerical_constant(subdomains)
         u_t_increment_scaled_to_traction = (
             scalar_to_tangential @ c_num_to_traction
         ) * u_t_increment
@@ -331,7 +329,9 @@ class NCPTangentialContact:
 
         # c_num_to_one_as_scalar essentially scales the tangential displacement increment to be of unit 1
         c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
-        u_t_increment_scaled_to_one = (scalar_to_tangential @ c_num_to_one) * u_t_increment
+        u_t_increment_scaled_to_one = (
+            scalar_to_tangential @ c_num_to_one
+        ) * u_t_increment
         u_t_increment_scaled_to_one.set_name("u_t_increment_scaled_to_one")
 
         # Orthogonality condition
@@ -347,9 +347,13 @@ class NCPTangentialContact:
         # TODO: Use (scaled) orthogonality here!?
         # TODO: 3d case general?
         if self.nd == 2:
-            modified_yield_criterion = friction_bound - f_sign(u_t_increment_scaled_to_one) * t_t
+            modified_yield_criterion = (
+                friction_bound - f_sign(u_t_increment_scaled_to_one) * t_t
+            )
         elif self.nd == 3:
-            modified_yield_criterion = friction_bound - f_sign(scaled_orthogonality) * f_norm(t_t)
+            modified_yield_criterion = friction_bound - f_sign(orthogonality) * f_norm(
+                t_t
+            )
         else:
             raise NotImplementedError(f"Unknown dimension: {self.nd}")
 
@@ -367,14 +371,9 @@ class NCPTangentialContact:
             ones_frac - characteristic_slip
         )
 
-
         characteristic_origin: pp.ad.Operator = (ones_frac - characteristic_open) * (
             scalar_to_tangential
-            @ (
-                f_characteristic(
-                    f_norm(t_t) + f_norm(u_t_increment_scaled_to_traction)
-                )
-            )
+            @ (f_characteristic(f_norm(t_t) + f_norm(u_t_increment_scaled_to_traction)))
         )
 
         characteristic_stick_slip_transition: pp.ad.Operator = (
@@ -602,8 +601,10 @@ class NCPTangentialContact:
             (scalar_to_tangential @ characteristic_open) * t_t
             + (scalar_to_tangential @ characteristic_stick) * (e_0 @ stick_equation)
             + (scalar_to_tangential @ characteristic_slip) * (e_0 @ slip_equation)
-            + (scalar_to_tangential @ characteristic_closed) * (e_1 @ self.alignment(subdomains))
-            + (scalar_to_tangential @ _characteristic_singular) * (u_t - u_t.previous_iteration())
+            + (scalar_to_tangential @ characteristic_closed)
+            * (e_1 @ self.alignment(subdomains))
+            + (scalar_to_tangential @ _characteristic_singular)
+            * (u_t - u_t.previous_iteration())
             # TODO use regularization parameter here? e.g. c_num_to_traction * 1e-10?
             # * (c_num_to_traction @ (u_t - u_t.previous_iteration()))
         )
