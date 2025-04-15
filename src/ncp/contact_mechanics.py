@@ -191,18 +191,18 @@ class AuxiliaryContact:
             [e.T for e in tangential_basis]  # type: ignore[call-arg]
         )
 
-        c_num_to_one_as_scalar = self.contact_mechanics_numerical_constant_t(subdomains)
-        c_num_to_one = pp.ad.sum_operator_list(
-            [e_i * c_num_to_one_as_scalar * e_i.T for e_i in tangential_basis]
-        )
-
         # Orthogonality condition
         if scaled:
-            orthogonality = nd_to_scalar_sum @ (t_t * (c_num_to_one @ u_t_increment))
-            orthogonality.set_name("orthogonality")
+            scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
+            c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
+            u_t_increment_scaled_to_one = (
+                scalar_to_tangential @ c_num_to_one
+            ) * u_t_increment
+            orthogonality = nd_to_scalar_sum @ (t_t * u_t_increment_scaled_to_one)
+            orthogonality.set_name("scaled orthogonality")
         else:
             orthogonality = nd_to_scalar_sum @ (t_t * u_t_increment)
-            orthogonality.set_name("unscaled orthogonality")
+            orthogonality.set_name("orthogonality")
         return orthogonality
 
     def alignment(self, subdomains: list[pp.Grid]):
@@ -225,12 +225,9 @@ class AuxiliaryContact:
             subdomains,
             dim=self.nd - 1,  # type: ignore[call-arg]
         )
-
-        c_num_to_one_as_scalar = self.contact_mechanics_numerical_constant_t(subdomains)
-        c_num_to_one = pp.ad.sum_operator_list(
-            [e_i * c_num_to_one_as_scalar * e_i.T for e_i in tangential_basis]
-        )
-        scaled_u_t_increment = c_num_to_one @ u_t_increment
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
+        c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
+        scaled_u_t_increment = (scalar_to_tangential @ c_num_to_one) u_t_increment
 
         e_0 = tangential_basis[0]
         e_1 = tangential_basis[1]
@@ -245,7 +242,7 @@ class AuxiliaryContact:
         return det
 
 
-class NCPTangentialContact2d:
+class NCPTangentialContact:
     def tangential_fracture_deformation_equation(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
@@ -271,9 +268,7 @@ class NCPTangentialContact2d:
         # but the row corresponding to each cell will be non-zero in all rows
         # corresponding to the tangential basis vectors of this cell. EK: mypy insists
         # that the argument to sum should be a list of booleans. Ignore this error.
-        scalar_to_tangential = pp.ad.sum_operator_list(
-            [e_i for e_i in tangential_basis]
-        )
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
 
         # Variables: The tangential component of the contact traction and the
         # displacement jump
@@ -283,7 +278,7 @@ class NCPTangentialContact2d:
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
         # Vectors needed to express the governing equations
-        ones_frac = scalar_to_tangential @ pp.ad.DenseArray(np.ones(num_cells))
+        ones_frac = pp.ad.DenseArray(np.ones(num_cells))
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
 
         # Functions EK: Should we try to agree on a name convention for ad functions?
@@ -324,44 +319,39 @@ class NCPTangentialContact2d:
         # of magnitude of the different fields. Essentially, displacements and tractions
         # need to be scaled to be of the same order of magnitude. For different uses,
         # the numerical constant may be scaled differently.
+
         # c_num_to_traction essentially scales displacement increments to be of unit of tractions
-        c_num_to_traction_as_scalar = self.contact_mechanics_numerical_constant(
+        c_num_to_traction = self.contact_mechanics_numerical_constant(
             subdomains
         )
-        c_num_to_traction = pp.ad.sum_operator_list(
-            [e_i * c_num_to_traction_as_scalar * e_i.T for e_i in tangential_basis]
-        )
+        u_t_increment_scaled_to_traction = (
+            scalar_to_tangential @ c_num_to_traction
+        ) * u_t_increment
+        u_t_increment_scaled_to_traction.set_name("u_t_increment_scaled_to_traction")
+
         # c_num_to_one_as_scalar essentially scales the tangential displacement increment to be of unit 1
-        c_num_to_one_as_scalar = self.contact_mechanics_numerical_constant_t(subdomains)
-        c_num_to_one = pp.ad.sum_operator_list(
-            [e_i * c_num_to_one_as_scalar * e_i.T for e_i in tangential_basis]
-        )
+        c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
+        u_t_increment_scaled_to_one = (scalar_to_tangential @ c_num_to_one) * u_t_increment
+        u_t_increment_scaled_to_one.set_name("u_t_increment_scaled_to_one")
+
+        # Orthogonality condition
+        scaled_orthogonality = self.orthogonality(subdomains, True)
+        orthogonality = self.orthogonality(subdomains, False)
 
         # Coulomb friction bound
         friction_bound = self.friction_bound(subdomains)
 
         # Yield criterion
         yield_criterion = self.yield_criterion(subdomains)
+        # TODO: Use c_num_to_one here!?
+        # TODO: Use (scaled) orthogonality here!?
+        # TODO: 3d case general?
         if self.nd == 2:
-            modified_yield_criterion = friction_bound - f_sign(u_t_increment) * t_t
+            modified_yield_criterion = friction_bound - f_sign(u_t_increment_scaled_to_one) * t_t
         elif self.nd == 3:
-            # Auxiliary operator for scalar products
-            tangential_basis: list[pp.ad.SparseArray] = self.basis(
-                subdomains,
-                dim=self.nd - 1,  # type: ignore[call-arg]
-            )
-            nd_to_scalar_sum = pp.ad.sum_operator_list(
-                [e.T for e in tangential_basis]  # type: ignore[call-arg]
-            )
-            modified_yield_criterion = friction_bound - f_sign(
-                nd_to_scalar_sum @ (u_t_increment * t_t)
-            ) * f_norm(t_t)
+            modified_yield_criterion = friction_bound - f_sign(scaled_orthogonality) * f_norm(t_t)
         else:
             raise NotImplementedError(f"Unknown dimension: {self.nd}")
-
-        # Orthogonality condition
-        scaled_orthogonality = self.orthogonality(subdomains, True)
-        orthogonality = self.orthogonality(subdomains, False)
 
         # Principled choices for open, stick, slip
         characteristic_open = self.contact_mechanics_open_state_characteristic(
@@ -377,20 +367,15 @@ class NCPTangentialContact2d:
             ones_frac - characteristic_slip
         )
 
-        characteristic_open.set_name("characteristic_function_open")
-        characteristic_closed.set_name("characteristic_function_closed")
-        characteristic_slip.set_name("characteristic_function_slip")
-        characteristic_stick.set_name("characteristic_function_stick")
 
         characteristic_origin: pp.ad.Operator = (ones_frac - characteristic_open) * (
             scalar_to_tangential
             @ (
                 f_characteristic(
-                    f_norm(t_t) + f_norm(c_num_to_traction @ u_t_increment)
+                    f_norm(t_t) + f_norm(u_t_increment_scaled_to_traction)
                 )
             )
         )
-        characteristic_origin.set_name("characteristic_function_origin")
 
         characteristic_stick_slip_transition: pp.ad.Operator = (
             ones_frac - characteristic_open
@@ -399,10 +384,15 @@ class NCPTangentialContact2d:
             @ (
                 f_characteristic(
                     f_abs(modified_yield_criterion)
-                    + f_norm(c_num_to_traction @ u_t_increment)
+                    + f_norm(u_t_increment_scaled_to_traction)
                 )
             )
         )
+        characteristic_open.set_name("characteristic_function_open")
+        characteristic_closed.set_name("characteristic_function_closed")
+        characteristic_slip.set_name("characteristic_function_slip")
+        characteristic_stick.set_name("characteristic_function_stick")
+        characteristic_origin.set_name("characteristic_function_origin")
         characteristic_stick_slip_transition.set_name(
             "characteristic_function_stick_slip_transition"
         )
@@ -417,19 +407,19 @@ class NCPTangentialContact2d:
             )
             stick_equation = pp.ad.Scalar(0.5) * (
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound
             )
         elif ncp_type == "min":
             closed_equation: pp.ad.Operator = ncp.min(
                 yield_criterion,
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound,
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound,
             )
 
         elif ncp_type == "min-sqrt":
             stick_term = (
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound
             )
             reg = 1e-3
             closed_equation: pp.ad.Operator = ncp.min(
@@ -441,7 +431,7 @@ class NCPTangentialContact2d:
         elif ncp_type == "min-sqrt-star":
             stick_term = (
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound
             )
             reg = 1e-3
             closed_equation: pp.ad.Operator = pp.ad.Scalar(-1) * f_max(
@@ -458,7 +448,7 @@ class NCPTangentialContact2d:
         elif ncp_type == "min-log":
             stick_term = (
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound
             )
             closed_equation: pp.ad.Operator = ncp.min(
                 yield_criterion,
@@ -467,7 +457,7 @@ class NCPTangentialContact2d:
         elif ncp_type == "min-log-reg":
             stick_term = (
                 scaled_orthogonality
-                - f_norm_reg(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm_reg(u_t_increment_scaled_to_one) * friction_bound
             )
             stick_equation = f_sign(stick_term) * f_log(
                 f_abs_reg(stick_term) + pp.ad.Scalar(1.0)
@@ -489,7 +479,7 @@ class NCPTangentialContact2d:
             # Fischer-Burmeister: (a**2 + b**2)**0.5 - (a + b)
             stick_term = (
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound
             )
             closed_equation = ncp.min_regularized_fb(
                 yield_criterion, stick_term, tol=1e-10
@@ -498,7 +488,7 @@ class NCPTangentialContact2d:
             # Fischer-Burmeister: (a**2 + b**2)**0.5 - (a + b)
             stick_term = (
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound
             )
             closed_equation = ncp.fb(
                 yield_criterion,
@@ -518,7 +508,7 @@ class NCPTangentialContact2d:
             )
         elif ncp_type == "min-active-set":
             # min-NCP: min(a,b) = -max(-a,-b)
-            stick_equation = c_num_to_traction @ u_t_increment
+            stick_equation = u_t_increment_scaled_to_traction
             slip_equation: pp.ad.Operator = ncp.min(
                 yield_criterion, scaled_orthogonality
             )
@@ -529,9 +519,9 @@ class NCPTangentialContact2d:
             )
             min_stick_equation = pp.ad.Scalar(0.5) * (
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound
             )
-            active_set_stick_equation = c_num_to_traction @ u_t_increment
+            active_set_stick_equation = u_t_increment_scaled_to_traction
             stick_equation = (
                 switch * min_stick_equation
                 + (pp.ad.Scalar(1.0) - switch) * active_set_stick_equation
@@ -542,7 +532,7 @@ class NCPTangentialContact2d:
             )
             stick_equation = pp.ad.Scalar(0.5) * (
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound
             )
         elif ncp_type == "min/fb":
             # min-NCP: min(a,b) = -max(-a,-b)
@@ -555,12 +545,12 @@ class NCPTangentialContact2d:
             # stick_equation = orthogonality - f_norm(u_t_increment) * friction_bound
             fb_stick_equation = pp.ad.Scalar(0.5) * (
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound
             )
 
             min_stick_equation = pp.ad.Scalar(0.5) * (
                 scaled_orthogonality
-                - f_norm(c_num_to_one @ u_t_increment) * friction_bound
+                - f_norm(u_t_increment_scaled_to_one) * friction_bound
             )
 
             switch = self.switch(subdomains)
@@ -609,11 +599,11 @@ class NCPTangentialContact2d:
         e_0 = tangential_basis[0]
         e_1 = tangential_basis[-1]
         equation: pp.ad.Operator = (
-            characteristic_open * t_t
-            + characteristic_stick * (e_0 @ stick_equation)
-            + characteristic_slip * (e_0 @ slip_equation)
-            + characteristic_closed * (e_1 @ self.alignment(subdomains))
-            + _characteristic_singular * (u_t - u_t.previous_iteration())
+            (scalar_to_tangential @ characteristic_open) * t_t
+            + (scalar_to_tangential @ characteristic_stick) * (e_0 @ stick_equation)
+            + (scalar_to_tangential @ characteristic_slip) * (e_0 @ slip_equation)
+            + (scalar_to_tangential @ characteristic_closed) * (e_1 @ self.alignment(subdomains))
+            + (scalar_to_tangential @ _characteristic_singular) * (u_t - u_t.previous_iteration())
             # TODO use regularization parameter here? e.g. c_num_to_traction * 1e-10?
             # * (c_num_to_traction @ (u_t - u_t.previous_iteration()))
         )

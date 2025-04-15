@@ -50,7 +50,7 @@ class LinearRadialReturnModel(
 # NCP Formulations
 class NCPModel(
     ncp.NCPNormalContact,
-    ncp.NCPTangentialContact2d,
+    ncp.NCPTangentialContact,
     NonlinearRadialReturnModel,
 ): ...
 
