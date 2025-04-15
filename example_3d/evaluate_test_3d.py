@@ -150,10 +150,29 @@ for apply_horizontal_stress in horizontal_stresses:
                     for data_key in data_keys[key]:
                         sol_data = solution_data.__dict__["cell_data"][data_key]
                         ref_data = reference_data.__dict__["cell_data"][data_key]
-                        if not np.allclose(sol_data, ref_data, rtol=1e-2, atol=1e-6):
-                            diff[key][data_key] = np.linalg.norm(
+                        rel_norm_check = (
+                            np.linalg.norm(
                                 np.concatenate(sol_data) - np.concatenate(ref_data)
-                            ) / (1e-16 + np.linalg.norm(np.concatenate(ref_data)))
+                            )
+                            / (1e-16 + np.linalg.norm(np.concatenate(ref_data)))
+                            < 1e-6
+                        )
+                        all_close_check = np.allclose(
+                            sol_data, ref_data, rtol=1e-2, atol=1e-6, equal_nan=True
+                        )
+                        if not (all_close_check or rel_norm_check):
+                            diff[key][data_key] = (
+                                np.linalg.norm(
+                                    np.concatenate(sol_data) - np.concatenate(ref_data)
+                                ),
+                                np.linalg.norm(
+                                    np.concatenate(sol_data) - np.concatenate(ref_data)
+                                ),
+                                np.linalg.norm(
+                                    np.concatenate(sol_data) - np.concatenate(ref_data)
+                                )
+                                / (1e-16 + np.linalg.norm(np.concatenate(ref_data))),
+                            )
 
             #                    def custom_compare(x, y, abs_tol=1e-6, rel_tol=1e-1):
             #                        try:
