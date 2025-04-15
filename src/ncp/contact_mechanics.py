@@ -360,30 +360,23 @@ class NCPTangentialContact:
 
         # NOTE: Scalar variant of self.contact_mechanics_open_state_characteristic(subdomains)
         characteristic_open = f_characteristic(f_max(friction_bound, zeros_frac))
-        characteristic_closed = (
-            ones_frac - self.contact_mechanics_open_state_characteristic(subdomains)
+        characteristic_closed = ones_frac - characteristic_open
+        characteristic_slip: pp.ad.Operator = characteristic_closed * f_characteristic(
+            f_max(yield_criterion, zeros_frac)
         )
-        characteristic_slip: pp.ad.Operator = (ones_frac - characteristic_open) * (
-            scalar_to_tangential @ f_characteristic(f_max(yield_criterion, zeros_frac))
-        )
-        characteristic_stick: pp.ad.Operator = (ones_frac - characteristic_open) * (
+        characteristic_stick: pp.ad.Operator = characteristic_closed * (
             ones_frac - characteristic_slip
         )
 
-        characteristic_origin: pp.ad.Operator = (ones_frac - characteristic_open) * (
-            scalar_to_tangential
-            @ (f_characteristic(f_norm(t_t) + f_norm(u_t_increment_scaled_to_traction)))
+        characteristic_origin: pp.ad.Operator = characteristic_closed * (
+            f_characteristic(f_norm(t_t) + f_norm(u_t_increment_scaled_to_traction))
         )
 
         characteristic_stick_slip_transition: pp.ad.Operator = (
-            ones_frac - characteristic_open
-        ) * (
-            scalar_to_tangential
-            @ (
-                f_characteristic(
-                    f_abs(modified_yield_criterion)
-                    + f_norm(u_t_increment_scaled_to_traction)
-                )
+            characteristic_closed
+            * f_characteristic(
+                f_abs(modified_yield_criterion)
+                + f_norm(u_t_increment_scaled_to_traction)
             )
         )
         characteristic_open.set_name("characteristic_function_open")
