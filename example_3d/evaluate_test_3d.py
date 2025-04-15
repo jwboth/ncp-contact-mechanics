@@ -7,6 +7,7 @@ import argparse
 from icecream import ic
 import datetime
 import subprocess
+import numpy as np
 
 argparser = argparse.ArgumentParser(description="Run single fracture test cases.")
 argparser.add_argument(
@@ -123,25 +124,26 @@ for apply_horizontal_stress in horizontal_stresses:
                     reference_data = meshio.read(reference_solution_filename[key])
 
                     def custom_compare(x, y, significant_digits=2, abs_tol=1e-8):
-                        # Check absolute tolerance
-                        if abs(x - y) <= abs_tol:
+                        try:
+                            diff = x - y
+                        except:
+                            diff = None
+                        if diff is not None:
+                            if np.all(np.abs(x - y)) <= abs_tol:
+                                return True
+                            if np.all(
+                                np.round(x, significant_digits)
+                                == np.round(y, significant_digits)
+                            ):
+                                return True
+                            return False
+                        else:
                             return True
-                        # Check relative tolerance using significant digits
-                        if round(x, significant_digits) == round(y, significant_digits):
-                            return True
-                        return False
-
-                    # Register the custom operator
-                    from deepdiff.helper import CustomOperator
-
-                    custom_operator = CustomOperator(
-                        name="custom_compare", compare_func=custom_compare
-                    )
 
                     diff[key] = DeepDiff(
                         solution_data.__dict__,
                         reference_data.__dict__,
-                        custom_operators=[custom_operator],
+                        iterable_compare_func=custom_compare,
                         # significant_digits=2,
                         number_format_notation="e",
                         ignore_order=True,
