@@ -177,24 +177,18 @@ class AuxiliaryContact:
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
         # Variables: The tangential component of the contact traction and the
-        # displacement jump
+        # displacement jump, and the time increment of the displacement jump
         t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
         u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
-        # The time increment of the tangential displacement jump
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
-        # Auxiliary operator for scalar products
+        # Tangential basis for projection and scalar product
         tangential_basis: list[pp.ad.SparseArray] = self.basis(
             subdomains,
             dim=self.nd - 1,  # type: ignore[call-arg]
         )
-        # nd_to_scalar_sum = pp.ad.sum_operator_list(
-        #     [e.T for e in tangential_basis]  # type: ignore[call-arg]
-        # )
-        e_0 = tangential_basis[0]
-        e_1 = tangential_basis[-1]
 
-        # Orthogonality condition
+        # Components of scalar product
         if scaled:
             scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
             c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
@@ -206,7 +200,14 @@ class AuxiliaryContact:
         else:
             orthogonality_vector = t_t * u_t_increment
             orthogonality_vector.set_name("orthogonality vector")
-        orthogonality = e_0.T @ orthogonality_vector + e_1.T @ orthogonality_vector
+
+        # Scalar product
+        if self.nd == 2:
+            orthogonality = orthogonality_vector
+        elif self.nd == 3:
+            e_0 = tangential_basis[0]
+            e_1 = tangential_basis[-1]
+            orthogonality = e_0.T @ orthogonality_vector + e_1.T @ orthogonality_vector
         orthogonality.set_name("orthogonality")
         return orthogonality
 
@@ -341,7 +342,6 @@ class NCPTangentialContact:
 
         # Orthogonality condition
         scaled_orthogonality = self.orthogonality(subdomains, True)
-        orthogonality = self.orthogonality(subdomains, False)
 
         # Coulomb friction bound
         friction_bound = self.friction_bound(subdomains)
@@ -354,9 +354,9 @@ class NCPTangentialContact:
                 friction_bound - f_sign(u_t_increment_scaled_to_one) * t_t
             )
         elif self.nd == 3:
-            modified_yield_criterion = friction_bound - f_sign(orthogonality) * f_norm(
-                t_t
-            )
+            modified_yield_criterion = friction_bound - f_sign(
+                scaled_orthogonality
+            ) * f_norm(t_t)
         else:
             raise NotImplementedError(f"Unknown dimension: {self.nd}")
 
