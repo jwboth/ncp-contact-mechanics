@@ -122,35 +122,6 @@ class ExtendedNumericalConstants(pp.NumericalConstants):
         return self.constants["contact_mechanics_scaling_t"]
 
 
-class ADTime:
-    def time(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """AD variant of time .
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Operator for time.
-
-        """
-        return pp.ad.TimeDependentDenseArray("time", [self.mdg.subdomains()[0]])
-
-    def update_time_ones(self) -> None:
-        for sd in self.mdg.subdomains(return_data=False):
-            pp.set_solution_values(
-                name="time",
-                values=self.units.convert_units(
-                    np.array([self.time_manager.time]), "s"
-                ),
-                data=self.mdg.subdomain_data(sd),
-                iterate_index=0,
-            )
-
-    def update_time_dependent_ad_arrays(self) -> None:
-        super().update_time_dependent_ad_arrays()
-        self.update_time_ones()
-
-
 class NonzeroInitialCondition:
     def initial_condition(self) -> None:
         """Set the initial condition for the problem."""
@@ -317,7 +288,6 @@ class PressureConstraintWell:
 
 
 class Physics(
-    ADTime,
     PressureConstraintWell,
     FlowBC,
     ZeroDisplacementBC,
