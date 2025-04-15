@@ -6,6 +6,12 @@ import argparse
 import time
 
 parser = argparse.ArgumentParser(description="Run single fracture test cases.")
+parser.add_argument(
+    "--num-fractures",
+    type=int,
+    default=6,
+    help="Number of fractures (1-6 [default]).",
+)
 parser.add_argument("-dry", "--dry", action="store_true", help="Only dry run.")
 parser.add_argument(
     "-c", "--cache", type=str, default="cache", help="cache for parallel runs."
@@ -34,7 +40,8 @@ args = parser.parse_args()
 
 # Remove visualization directory if it exists
 if Path("visualization").exists():
-    shutil.rmtree("visualization")
+    shutil.rmtree(f"visualization/simple_bedretto_{args.num_fractures}")
+    shutil.rmtree(f"visualization/simple_bedretto_{args.num_fractures}_sigma_h")
 
 # Test different formulations
 formulations = [
@@ -47,7 +54,7 @@ formulations = [
     "ncp-min-unscaled",
     "ncp-fb-unscaled",
 ]
-num_fractures = 2
+num_fractures = args.num_fractures
 passed = []
 not_passed = formulations.copy()
 not_passed_reason = {}
