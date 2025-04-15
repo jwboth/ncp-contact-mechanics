@@ -127,19 +127,22 @@ class IterationExporting:
             nd_vec_to_normal = self.normal_component([sd])
             nd_vec_to_tangential = self.tangential_component([sd])
 
+            scaled_contact_traction = self.characteristic_contact_traction(
+                [sd]
+            ) * self.contact_traction([sd])
+
             data.append(
                 (
                     sd,
                     "scaled_traction",
-                    self.scaled_contact_traction([sd]).value(self.equation_system),
+                    scaled_contact_traction.value(self.equation_system),
                 )
             )
+
             # Contact mechanics
-            t_n: pp.ad.Operator = nd_vec_to_normal @ self.scaled_contact_traction([sd])
+            t_n: pp.ad.Operator = nd_vec_to_normal @ scaled_contact_traction
             u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump([sd])
-            t_t: pp.ad.Operator = nd_vec_to_tangential @ self.scaled_contact_traction(
-                [sd]
-            )
+            t_t: pp.ad.Operator = nd_vec_to_tangential @ scaled_contact_traction
             u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump([sd])
             u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
