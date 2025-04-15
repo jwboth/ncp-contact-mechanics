@@ -102,6 +102,30 @@ for apply_horizontal_stress in horizontal_stresses:
                     / "data_mortar_1_000003.vtu"
                 )
 
+            data_keys_fracture = [
+                "aperture",
+                "contact_traction",
+                "pressure",
+                "specific_volume",
+                "states",
+            ]
+            data_keys_matrix = [
+                "pressure",
+                "specific_volume",
+                "u",
+            ]
+            data_keys_mortar = [
+                "interface_darcy_flux",
+                "u_interface",
+            ]
+            data_keys = {
+                "data_1": data_keys_fracture,
+                "data_2": data_keys_fracture,
+                "data_3": data_keys_matrix,
+                "mortar_1": data_keys_mortar,
+                "mortar_2": data_keys_mortar,
+            }
+
             # Initiate status
             status = True
             failure = []
@@ -118,35 +142,44 @@ for apply_horizontal_stress in horizontal_stresses:
 
             if files_exist:
                 # Compare the final solution files
-                diff = {}
+                diff = {key: {} for key in final_solution_filename.keys()}
                 for key in final_solution_filename.keys():
                     solution_data = meshio.read(final_solution_filename[key])
                     reference_data = meshio.read(reference_solution_filename[key])
 
-                    def custom_compare(x, y, abs_tol=1e-6, rel_tol=1e-1):
-                        try:
-                            diff = x - y
-                        except:
-                            return True
-                        print(
-                            np.allclose(
-                                x, y, rtol=rel_tol, atol=abs_tol, equal_nan=True
+                    for data_key in data_keys[key]:
+                        sol_data = solution_data.__dict__["cell_data"][data_key]
+                        ref_data = reference_data.__dict__["cell_data"][data_key]
+                        if not np.allclose(sol_data, ref_data, rtol=1e-2, atol=1e-6):
+                            diff[key][data_key] = np.linalg.norm(
+                                np.concatenate(sol_data) - np.concatenate(ref_data)
                             )
-                        )
-                        print(x[:5], y[:5])
-                        return np.allclose(
-                            x, y, rtol=rel_tol, atol=abs_tol, equal_nan=True
-                        )
 
-                    diff[key] = DeepDiff(
-                        solution_data.__dict__["cell_data"],
-                        reference_data.__dict__["cell_data"],
-                        iterable_compare_func=custom_compare,
-                        # significant_digits=2,
-                        number_format_notation="e",
-                        ignore_order=True,
-                        ignore_numeric_type_changes=True,
-                    )
+            #                    def custom_compare(x, y, abs_tol=1e-6, rel_tol=1e-1):
+            #                        try:
+            #                            diff = x - y
+            #                        except:
+            #                            return True
+            #                        print(
+            #                            np.allclose(
+            #                                x, y, rtol=rel_tol, atol=abs_tol, equal_nan=True
+            #                            )
+            #                        )
+            #
+            #                        print(x[:5], y[:5])
+            #                        return np.allclose(
+            #                            x, y, rtol=rel_tol, atol=abs_tol, equal_nan=True
+            #                        )
+            #
+            #                    diff[key] = DeepDiff(
+            #                        solution_data.__dict__["cell_data"],
+            #                        reference_data.__dict__["cell_data"],
+            #                        iterable_compare_func=custom_compare,
+            #                        # significant_digits=2,
+            #                        number_format_notation="e",
+            #                        ignore_order=True,
+            #                        ignore_numeric_type_changes=True,
+            #                    )
 
             if files_exist:
                 for key in final_solution_filename.keys():
