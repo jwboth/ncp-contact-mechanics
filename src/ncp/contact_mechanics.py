@@ -658,6 +658,13 @@ class LinearRadialReturnTangentialContact:
 
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        f_characteristic = pp.ad.Function(
+            partial(
+                pp.ad.functions.characteristic_function,
+                self.numerical.open_state_tolerance,
+            ),
+            "characteristic_function_for_zero_normal_traction",
+        )
 
         # The numerical constant is used to loosen the sensitivity in the transition
         # between sticking and sliding.
@@ -672,6 +679,10 @@ class LinearRadialReturnTangentialContact:
 
         norm_tangential_sum = f_norm(tangential_sum)
         norm_tangential_sum.set_name("norm_tangential")
+
+        characteristic_origin: pp.ad.Operator = pp.ad.Scalar(1.0) - f_characteristic(
+            norm_tangential_sum
+        )
 
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
         b_p.set_name("bp")
@@ -689,6 +700,8 @@ class LinearRadialReturnTangentialContact:
         # case t_t = 0 cannot be deduced from the standard version of the complementary
         # function (i.e. without the characteristic function). Filter out the other
         # terms in this case to improve convergence
-        equation: pp.ad.Operator = t_t - min_term * tangential_sum
+        equation: pp.ad.Operator = t_t - min_term * tangential_sum * (
+            scalar_to_tangential @ characteristic_origin
+        )
         equation.set_name("tangential_fracture_deformation_equation")
         return equation
