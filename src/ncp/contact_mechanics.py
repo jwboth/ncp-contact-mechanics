@@ -39,10 +39,7 @@ class ScaledContact:
         As the normal contact, but without the shear modulus.
 
         """
-        # TODO pick a characteristic distance.
-        # characteristic_distance = self.characteristic_jump(subdomains)
         characteristic_distance = self.characteristic_displacement(subdomains)
-        # val = self.cnum_t(subdomains) / characteristic_distance
         val = self.cnum(subdomains) / characteristic_distance
         return val
 
@@ -69,6 +66,18 @@ class UnscaledContact(ScaledContact):
         size = pp.ad.Scalar(np.max(self.domain.side_lengths()))
         val = cnum * youngs_modulus / size
         val.set_name("Contact_mechanics_numerical_constant")
+        return val
+
+    def contact_mechanics_numerical_constant_t(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Scalar:
+        """Numerical constant for the contact problem [m^-1].
+
+        As the normal contact, but without the shear modulus.
+
+        """
+        characteristic_distance = self.characteristic_jump(subdomains)
+        val = self.cnum(subdomains) / characteristic_distance
         return val
 
     def characteristic_contact_traction(
