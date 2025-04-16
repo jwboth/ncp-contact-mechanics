@@ -95,6 +95,6 @@ with open(
     f.write(f"Test run on {datetime.datetime.now()}\n")
     f.write(f"Latest commit message: {latest_commit_message}\n")
     f.write(f"Performance {len(performance)}:\n")
-    for item in performance:
+    for item in performance.items():
         f.write(f"{item}\n")
     f.write("--------------------------------------------------------\n")
