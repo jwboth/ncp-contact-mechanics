@@ -55,7 +55,7 @@ class AANewtonSolver(pp.NewtonSolver):
 
         model.assemble_linear_system()
         nonlinear_increment = model.solve_linear_system()
-        aa_depth = self.params["aa_depth"]
+        aa_depth = self.params.get("aa_depth", 0)
         use_aa = aa_depth > 0
         use_relaxation = aa_depth == -1
         use_adaptive_relaxation = aa_depth == -2
