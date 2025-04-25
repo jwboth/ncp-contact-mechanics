@@ -71,6 +71,7 @@ class FractureStates:
                 else:
                     states.append(conversion["stick"])
         else:
+            failure = False
             for b_val, yc_val in zip(b_eval, yield_criterion_eval):
                 if b_val <= tol:
                     states.append(conversion["open"])
@@ -80,7 +81,9 @@ class FractureStates:
                     states.append(conversion["slip"])
                 else:
                     states.append(conversion["unknown"])
-                    print("Should not get here.", b_val, yc_val, tol)
+                    if not failure:
+                        print("Should not get here.", b_val, yc_val, tol)
+                        failure = True
 
         # Split combined states vector into subdomain-corresponding vectors
         if split_output:
