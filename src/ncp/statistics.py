@@ -345,7 +345,7 @@ class LogPerformanceData:
                     """PyPardiso could not be imported,
                     falling back on scipy.sparse.linalg.spsolve"""
                 )
-            x = sparse_solver(A, b)
+            #x = sparse_solver(A, b)
             try:
                 x = sparse_solver(A, b)
             except RuntimeError:
