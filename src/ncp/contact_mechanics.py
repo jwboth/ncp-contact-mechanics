@@ -370,8 +370,6 @@ class NCPTangentialContact:
             raise NotImplementedError(f"Unknown dimension: {self.nd}")
 
         # Principled choices for open, stick, slip
-
-        # NOTE: Scalar variant of self.contact_mechanics_open_state_characteristic(subdomains)
         characteristic_open = f_characteristic(f_max(friction_bound, zeros_frac))
         characteristic_closed = ones_frac - characteristic_open
         characteristic_slip: pp.ad.Operator = characteristic_closed * f_characteristic(
@@ -676,6 +674,7 @@ class LinearRadialReturnTangentialContact:
         # Combine the above into expressions that enter the equation. c_num will
         # effectively be a sum of SparseArrays, thus we use a matrix-vector product @
         tangential_sum = t_t + (scalar_to_tangential @ c_num) * u_t_increment
+        tangential_sum.set_name("tangential_sum")
 
         norm_tangential_sum = f_norm(tangential_sum)
         norm_tangential_sum.set_name("norm_tangential")
@@ -683,11 +682,31 @@ class LinearRadialReturnTangentialContact:
         characteristic_origin: pp.ad.Operator = pp.ad.Scalar(1.0) - f_characteristic(
             norm_tangential_sum
         )
+        characteristic_origin.set_name("characteristic_origin")
 
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
         b_p.set_name("bp")
+        characteristic_closed: pp.ad.Operator = pp.ad.Scalar(1.0) - f_characteristic(
+            b_p
+        )
+        characteristic_closed.set_name("characteristic_closed")
+        characteristic = characteristic_closed * characteristic_origin
+        characteristic.set_name("characteristic")
 
-        # For the use of @, see previous comment.
+        # Compose the equation itself. The last term handles the case bound=0, in which
+        # case t_t = 0 cannot be deduced from the standard version of the complementary
+        # function (i.e. without the characteristic function). Filter out the other
+        # terms in this case to improve convergence
+        #f_nan_to_num = pp.ad.Function(ncp.nan_to_num, "nan_to_num")
+        #min_term = (
+        #    pp.ad.Scalar(-1.0)
+        #    * f_max(
+        #        pp.ad.Scalar(-1.0) * ones_frac,
+        #        pp.ad.Scalar(-1.0) * b_p / norm_tangential_sum,
+        #    )
+        #)
+        # equation: pp.ad.Operator = t_t - f_nan_to_num(tangential_sum * (scalar_to_tangential @ min_term))
+        # equation: pp.ad.Operator = t_t - f_nan_to_num(tangential_sum * (scalar_to_tangential @ (characteristic * min_term)))
         min_term = scalar_to_tangential @ (
             pp.ad.Scalar(-1.0)
             * f_max(
@@ -695,13 +714,7 @@ class LinearRadialReturnTangentialContact:
                 pp.ad.Scalar(-1.0) * b_p / norm_tangential_sum,
             )
         )
-
-        # Compose the equation itself. The last term handles the case bound=0, in which
-        # case t_t = 0 cannot be deduced from the standard version of the complementary
-        # function (i.e. without the characteristic function). Filter out the other
-        # terms in this case to improve convergence
         equation: pp.ad.Operator = t_t - min_term * tangential_sum * (
             scalar_to_tangential @ characteristic_origin
-        )
         equation.set_name("tangential_fracture_deformation_equation")
         return equation
