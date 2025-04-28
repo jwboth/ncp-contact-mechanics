@@ -716,5 +716,6 @@ class LinearRadialReturnTangentialContact:
         )
         equation: pp.ad.Operator = t_t - min_term * tangential_sum * (
             scalar_to_tangential @ characteristic_origin
+        )
         equation.set_name("tangential_fracture_deformation_equation")
         return equation
