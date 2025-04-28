@@ -21,9 +21,6 @@ class IterationExporting:
     def initialize_data_saving(self):
         """Initialize iteration exporter."""
         super().initialize_data_saving()
-        # Setting export_constants_separately to False facilitates operations
-        # such as filtering by dimension in ParaView and is done here for
-        # illustrative purposes.
         self.iteration_exporter = pp.Exporter(
             self.mdg,
             file_name=self.params["file_name"] + "_iterations",
@@ -41,18 +38,54 @@ class IterationExporting:
         """
         data = super().data_to_export()
 
-        # Use scaled traction
+        # Exclude contact_traction from data and scale it.
         data = [d for d in data if d[1] != "contact_traction"]
+
+        # Add data to the fracture
         for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
+            scaled_contact_traction = self.characteristic_contact_traction(
+                [sd]
+            ) * self.contact_traction([sd])
+            scaled_contact_traction_n = (
+                self.normal_component([sd]) @ scaled_contact_traction
+            )
+            scaled_contact_traction_t = (
+                self.tangential_component([sd]) @ scaled_contact_traction
+            )
+            f_norm = pp.ad.Function(
+                partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
+            )
+            scaled_contact_traction_t_norm = f_norm(scaled_contact_traction_t)
+            slip_tendency = scaled_contact_traction_t_norm / scaled_contact_traction_n
             data.append(
                 (
                     sd,
                     "contact_traction",
                     self.units.convert_units(1, "Pa^-1")
-                    * self.characteristic_contact_traction([sd]).value(
-                        self.equation_system
-                    )
-                    * self.contact_traction([sd]).value(self.equation_system),
+                    * scaled_contact_traction.value(self.equation_system),
+                )
+            )
+            data.append(
+                (
+                    sd,
+                    "contact_traction_n",
+                    self.units.convert_units(1, "Pa^-1")
+                    * scaled_contact_traction_n.value(self.equation_system),
+                )
+            )
+            data.append(
+                (
+                    sd,
+                    "contact_traction_t",
+                    self.units.convert_units(1, "Pa^-1")
+                    * scaled_contact_traction_t.value(self.equation_system),
+                )
+            )
+            data.append(
+                (
+                    sd,
+                    "slip_tendency",
+                    slip_tendency.value(self.equation_system),
                 )
             )
 
@@ -121,8 +154,12 @@ class IterationExporting:
         except:
             ...
 
+        # Exclude contact_traction from data and scale it.
+        data = [d for d in data if d[1] != "contact_traction"]
+
         # Add contact states and time increments of u_t.
         # Include various apertures and normal permeabilities.
+        not_exported = []
         for sd in self.mdg.subdomains(dim=self.nd - 1):
             nd_vec_to_normal = self.normal_component([sd])
             nd_vec_to_tangential = self.tangential_component([sd])
@@ -134,7 +171,7 @@ class IterationExporting:
             data.append(
                 (
                     sd,
-                    "scaled_traction",
+                    "contact_traction",
                     scaled_contact_traction.value(self.equation_system),
                 )
             )
@@ -145,6 +182,11 @@ class IterationExporting:
             t_t: pp.ad.Operator = nd_vec_to_tangential @ scaled_contact_traction
             u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump([sd])
             u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
+            f_norm = pp.ad.Function(
+                partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
+            )
+            t_t_norm: pp.ad.Operator = f_norm(t_t)
+            slip_tendency: pp.ad.Operator = t_t_norm / t_n
 
             data.append(
                 (
@@ -170,58 +212,35 @@ class IterationExporting:
             data.append(
                 (
                     sd,
-                    "t_n",
-                    t_n.value(self.equation_system),
+                    "contact_traction_n",
+                    self.units.convert_units(1, "Pa^-1")
+                    * t_n.value(self.equation_system),
                 )
             )
             data.append(
                 (
                     sd,
-                    "t_t",
-                    t_t.value(self.equation_system),
+                    "contact_traction_t",
+                    self.units.convert_units(1, "Pa^-1")
+                    * t_t.value(self.equation_system),
                 )
             )
+            data.append(
+                (
+                    sd,
+                    "slip_tendency",
+                    slip_tendency.value(self.equation_system),
+                )
+            )
+
             try:
-                yield_criterion = self.yield_criterion([sd])
-                orthogonality = self.orthogonality([sd])
                 c_n = self.contact_mechanics_numerical_constant(subdomains)
                 force = pp.ad.Scalar(-1.0) * t_n
                 gap = c_n * (u_n - self.fracture_gap(subdomains))
                 f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-                f_norm = pp.ad.Function(
-                    partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
-                )
-                c_num_as_scalar = (
-                    self.contact_mechanics_numerical_constant_ncp_tangential([sd])
-                )
-                tangential_basis: list[pp.ad.SparseArray] = self.basis(
-                    [sd],
-                    dim=self.nd - 1,  # type: ignore[call-arg]
-                )
-                c_t = pp.ad.sum_operator_list(
-                    [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
-                )
-                ncp_equation_tangential = pp.ad.Scalar(-1) * f_max(
-                    pp.ad.Scalar(-1) * yield_criterion,
-                    pp.ad.Scalar(-1) * (c_t @ orthogonality),
-                )
                 ncp_equation_normal = pp.ad.Scalar(-1) * f_max(
                     pp.ad.Scalar(-1) * force,
                     pp.ad.Scalar(-1) * gap,
-                )
-                normal_fracture_deformation_equation = (
-                    self.normal_fracture_deformation_equation([sd])
-                )
-                tangential_fracture_deformation_equation = (
-                    self.tangential_fracture_deformation_equation([sd])
-                )
-                orthogonality_components = f_norm(u_t_increment) + f_norm(t_t)
-                data.append(
-                    (
-                        sd,
-                        "orthogonality_components",
-                        orthogonality_components.value(self.equation_system),
-                    )
                 )
                 data.append(
                     (
@@ -231,11 +250,44 @@ class IterationExporting:
                     )
                 )
                 data.append(
+                    (sd, "gap", gap.value(self.equation_system)),
+                )
+            except:
+                not_exported.append("ncp_equation_normal")
+
+            try:
+                yield_criterion = self.yield_criterion([sd])
+                scaled_orthogonality = self.orthogonality([sd])
+                ncp_equation_tangential = pp.ad.Scalar(-1) * f_max(
+                    pp.ad.Scalar(-1) * yield_criterion,
+                    pp.ad.Scalar(-1) * scaled_orthogonality,
+                )
+                data.append(
+                    (sd, "yield_criterion", yield_criterion.value(self.equation_system))
+                )
+                data.append(
+                    (
+                        sd,
+                        "orthogonality",
+                        scaled_orthogonality.value(self.equation_system),
+                    )
+                )
+                data.append(
                     (
                         sd,
                         "ncp_equation_tangential",
                         ncp_equation_tangential.value(self.equation_system),
                     )
+                )
+            except:
+                not_exported.append("ncp_equation_tangential")
+
+            try:
+                normal_fracture_deformation_equation = (
+                    self.normal_fracture_deformation_equation([sd])
+                )
+                tangential_fracture_deformation_equation = (
+                    self.tangential_fracture_deformation_equation([sd])
                 )
                 data.append(
                     (
@@ -255,86 +307,37 @@ class IterationExporting:
                         ),
                     )
                 )
-                data.append(
-                    (sd, "gap", gap.value(self.equation_system)),
-                )
             except:
-                pass
+                not_exported.append("fracture_deformation_equation")
 
             try:
-                c_n = self.contact_mechanics_numerical_constant([sd])
-                force = pp.ad.Scalar(-1.0) * t_n
-                gap = c_n * (u_n - self.fracture_gap([sd]))
-                f_max = pp.ad.Function(pp.ad.maximum, "max_function")
                 f_norm = pp.ad.Function(
                     partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
                 )
-                ncp_equation_normal = pp.ad.Scalar(-1) * f_max(
-                    pp.ad.Scalar(-1) * force,
-                    pp.ad.Scalar(-1) * gap,
+                tangential_basis: list[pp.ad.SparseArray] = self.basis(
+                    [sd],
+                    dim=self.nd - 1,  # type: ignore[call-arg]
                 )
+                scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
+                c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
+                characteristic_origin = f_norm(
+                    (scalar_to_tangential @ c_num_to_one) * u_t_increment
+                ) + f_norm(t_t)
                 data.append(
                     (
                         sd,
-                        "force",
-                        force.value(self.equation_system),
-                    )
-                )
-                data.append(
-                    (
-                        sd,
-                        "gap",
-                        gap.value(self.equation_system),
-                    )
-                )
-                data.append(
-                    (
-                        sd,
-                        "ncp_equation_normal",
-                        ncp_equation_normal.value(self.equation_system),
+                        "characteristic_origin",
+                        characteristic_origin.value(self.equation_system),
                     )
                 )
             except:
-                ...
+                not_exported.append("characteristic_origin")
 
             try:
-                yield_criterion = self.yield_criterion([sd])
-                orthogonality = self.orthogonality([sd])
-                f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-                ncp_equation_tangential = pp.ad.Scalar(-1) * f_max(
-                    pp.ad.Scalar(-1) * yield_criterion,
-                    pp.ad.Scalar(-1) * orthogonality,
-                )
-                data.append(
-                    (
-                        sd,
-                        "ncp_equation_tangential",
-                        ncp_equation_tangential.value(self.equation_system),
-                    )
-                )
-                data.append(
-                    (sd, "yield_criterion", yield_criterion.value(self.equation_system))
-                )
-                data.append(
-                    (sd, "orthogonality", orthogonality.value(self.equation_system))
-                )
-                if self.nd == 3:
-                    alignment = self.alignment([sd])
-                    data.append(
-                        (sd, "alignment", alignment.value(self.equation_system))
-                    )
-
+                alignment = self.alignment([sd])
+                data.append((sd, "alignment", alignment.value(self.equation_system)))
             except:
-                ...
-
-            # Append data
-            data.append((sd, "u_n", u_n.value(self.equation_system)))
-            data.append((sd, "u_t", u_t.value(self.equation_system)))
-            data.append(
-                (sd, "u_t_increment", u_t_increment.value(self.equation_system))
-            )
-            data.append((sd, "t_n", t_n.value(self.equation_system)))
-            data.append((sd, "t_t", t_t.value(self.equation_system)))
+                not_exported.append("alignment")
 
             # Fluid flow
             try:
@@ -347,12 +350,13 @@ class IterationExporting:
                     (sd, "fracture_gap", fracture_gap.value(self.equation_system))
                 )
             except:
-                pass
+                not_exported.append("aperture and fracture gap")
+
             try:
                 perm = self.permeability([sd])
                 data.append((sd, "perm", perm.value(self.equation_system)))
             except:
-                pass
+                not_exported.append("permeability")
 
         # Add contact states
         try:
@@ -367,7 +371,11 @@ class IterationExporting:
             # Cache contact states
             self.prev_state = states.copy()
         except:
-            pass
+            not_exported.append("contact states")
+
+        not_exported = list(set(not_exported))
+        if len(not_exported) > 0:
+            logger.warning(f"Not all data could be exported. Missing: {not_exported}")
 
         return data
 
