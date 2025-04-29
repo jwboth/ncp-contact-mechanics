@@ -90,11 +90,12 @@ class IterationExporting:
                 )
             )
 
-            # Deviation from reference state:
-            # * displacement
-            # * pressure
-            # * interface displacement
-            try:
+        # Deviation from reference state:
+        # * displacement
+        # * pressure
+        # * interface displacement
+        if hasattr(self, "has_reference_momentum_state"):
+            for i, sd in enumerate(self.mdg.subdomains(dim=self.nd)):
                 reference_displacement = pp.ad.TimeDependentDenseArray(
                     "reference_displacement", [sd]
                 )
@@ -102,56 +103,66 @@ class IterationExporting:
                     self.displacement([sd]) - reference_displacement
                 )
                 data.append(
-                    (sd, "displacement_deviation", displacement_deviation.value(self.equation_system))
+                    (
+                        sd,
+                        "displacement_deviation",
+                        displacement_deviation.value(self.equation_system),
+                    )
                 )
                 data.append(
-                    sd, "reference_displacement", reference_displacement.value(self.equation_system)
+                    (
+                        sd,
+                        "reference_displacement",
+                        reference_displacement.value(self.equation_system),
+                    )
                 )
-            except:
-                not_exported.append("displacement_deviation")
-            try:
+        if hasattr(self, "has_reference_flow_state"):
+            for i, sd in enumerate(self.mdg.subdomains()):
                 reference_pressure = pp.ad.TimeDependentDenseArray(
                     "reference_pressure", [sd]
                 )
                 pressure_deviation = self.fluid_pressure([sd]) - reference_pressure
                 data.append(
-                    (sd, "pressure_deviation", pressure_deviation.value(self.equation_system))
-                )
-                data.append(
-                    (sd, "reference_pressure", reference_pressure.value(self.equation_system))
-                )
-            except:
-                not_exported.append("pressure_deviation")
-            try:
-                reference_interface_displacement = pp.ad.TimeDependentDenseArray(
-                    "reference_interface_displacement", [sd]
-                )
-                interface_displacement_deviation = (
-                    self.interface_displacement([sd])
-                    - reference_interface_displacement
+                    (
+                        sd,
+                        "pressure_deviation",
+                        pressure_deviation.value(self.equation_system),
+                    )
                 )
                 data.append(
                     (
                         sd,
+                        "reference_pressure",
+                        reference_pressure.value(self.equation_system),
+                    )
+                )
+
+        if hasattr(self, "has_reference_momentum_state"):
+            for intf in self.mdg.interfaces(dim=self.nd - 1):
+                reference_interface_displacement = pp.ad.TimeDependentDenseArray(
+                    "reference_interface_displacement", [intf]
+                )
+                interface_displacement_deviation = (
+                    self.interface_displacement([intf])
+                    - reference_interface_displacement
+                )
+                data.append(
+                    (
+                        intf,
                         "interface_displacement_deviation",
                         interface_displacement_deviation.value(self.equation_system),
                     )
                 )
                 data.append(
                     (
-                        sd,
+                        intf,
                         "reference_interface_displacement",
                         reference_interface_displacement.value(self.equation_system),
                     )
                 )
-            except:
-                not_exported.append("interface_displacement_deviation")
         if len(not_exported) > 0:
             not_exported = list(set(not_exported))
-            logger.info(
-                f"Not all data could be exported. Missing: {not_exported}"
-            )
-
+            logger.info(f"Not all data could be exported. Missing: {not_exported}")
 
         # Add contact states
         states = self.compute_fracture_states(split_output=True, trial=False)
