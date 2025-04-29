@@ -105,7 +105,7 @@ class IterationExporting:
                 data.append(
                     (
                         sd,
-                        "displacement_deviation",
+                        "deviation_displacement",
                         displacement_deviation.value(self.equation_system),
                     )
                 )
@@ -121,19 +121,25 @@ class IterationExporting:
                 reference_pressure = pp.ad.TimeDependentDenseArray(
                     "reference_pressure", [sd]
                 )
-                pressure_deviation = self.fluid_pressure([sd]) - reference_pressure
+                pressure_deviation = self.pressure([sd]) - reference_pressure
                 data.append(
                     (
                         sd,
-                        "pressure_deviation",
-                        pressure_deviation.value(self.equation_system),
+                        "deviation_pressure",
+                        self.units.convert_units(
+                            pressure_deviation.value(self.equation_system),
+                            "Pa",
+                        )
                     )
                 )
                 data.append(
                     (
                         sd,
                         "reference_pressure",
-                        reference_pressure.value(self.equation_system),
+                        self.units.convert_units(
+                            reference_pressure.value(self.equation_system),
+                            "Pa",
+                        )
                     )
                 )
 
@@ -149,7 +155,7 @@ class IterationExporting:
                 data.append(
                     (
                         intf,
-                        "interface_displacement_deviation",
+                        "deviation_interface_displacement",
                         interface_displacement_deviation.value(self.equation_system),
                     )
                 )
