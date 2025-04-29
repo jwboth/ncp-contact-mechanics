@@ -42,6 +42,7 @@ class IterationExporting:
         data = [d for d in data if d[1] != "contact_traction"]
 
         # Add data to the fracture
+        not_exported = []
         for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
             scaled_contact_traction = self.characteristic_contact_traction(
                 [sd]
@@ -88,6 +89,69 @@ class IterationExporting:
                     np.absolute(slip_tendency.value(self.equation_system)),
                 )
             )
+
+            # Deviation from reference state:
+            # * displacement
+            # * pressure
+            # * interface displacement
+            try:
+                reference_displacement = pp.ad.TimeDependentDenseArray(
+                    "reference_displacement", [sd]
+                )
+                displacement_deviation = (
+                    self.displacement([sd]) - reference_displacement
+                )
+                data.append(
+                    (sd, "displacement_deviation", displacement_deviation.value(self.equation_system))
+                )
+                data.append(
+                    sd, "reference_displacement", reference_displacement.value(self.equation_system)
+                )
+            except:
+                not_exported.append("displacement_deviation")
+            try:
+                reference_pressure = pp.ad.TimeDependentDenseArray(
+                    "reference_pressure", [sd]
+                )
+                pressure_deviation = self.fluid_pressure([sd]) - reference_pressure
+                data.append(
+                    (sd, "pressure_deviation", pressure_deviation.value(self.equation_system))
+                )
+                data.append(
+                    (sd, "reference_pressure", reference_pressure.value(self.equation_system))
+                )
+            except:
+                not_exported.append("pressure_deviation")
+            try:
+                reference_interface_displacement = pp.ad.TimeDependentDenseArray(
+                    "reference_interface_displacement", [sd]
+                )
+                interface_displacement_deviation = (
+                    self.interface_displacement([sd])
+                    - reference_interface_displacement
+                )
+                data.append(
+                    (
+                        sd,
+                        "interface_displacement_deviation",
+                        interface_displacement_deviation.value(self.equation_system),
+                    )
+                )
+                data.append(
+                    (
+                        sd,
+                        "reference_interface_displacement",
+                        reference_interface_displacement.value(self.equation_system),
+                    )
+                )
+            except:
+                not_exported.append("interface_displacement_deviation")
+        if len(not_exported) > 0:
+            not_exported = list(set(not_exported))
+            logger.info(
+                f"Not all data could be exported. Missing: {not_exported}"
+            )
+
 
         # Add contact states
         states = self.compute_fracture_states(split_output=True, trial=False)
