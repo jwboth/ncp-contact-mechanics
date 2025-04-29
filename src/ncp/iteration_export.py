@@ -152,6 +152,9 @@ class IterationExporting:
                     self.interface_displacement([intf])
                     - reference_interface_displacement
                 )
+                interface_displacement_time_increment = (
+                    pp.ad.time_increment(self.interface_displacement([intf]))
+                )
                 data.append(
                     (
                         intf,
@@ -164,6 +167,13 @@ class IterationExporting:
                         intf,
                         "reference_interface_displacement",
                         reference_interface_displacement.value(self.equation_system),
+                    )
+                )
+                data.append(
+                    (
+                        intf,
+                        "interface_displacement_time_increment",
+                        interface_displacement_time_increment.value(self.equation_system),
                     )
                 )
         if len(not_exported) > 0:
