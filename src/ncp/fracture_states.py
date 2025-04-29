@@ -6,6 +6,7 @@ import numpy as np
 from icecream import ic
 
 import porepy as pp
+from typing import cast
 
 
 class FractureStates:
@@ -133,3 +134,62 @@ class FractureStates:
         )
 
         return normal_residuals, tangential_residuals
+
+
+class NCPContactIndicators(pp.models.solution_strategy.ContactIndicators):
+    def opening_indicator(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        return super().opening_indicator(subdomains)
+
+    def sliding_indicator(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Function describing the state of the sliding constraint."""
+
+        # TODO sign?
+
+        # Functions
+        f_heaviside = pp.ad.Function(partial(pp.ad.heaviside, 0), "heaviside_function")
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
+        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+
+        # Basis vector combinations
+        num_cells = sum([sd.num_cells for sd in subdomains])
+        # Mapping from a full vector to the tangential component
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+
+        # Variables: The tangential component of the contact traction and the
+        # displacement jump
+        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
+        # The time increment of the tangential displacement jump
+        u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
+        # The friction bound
+        friction_bound = self.friction_bound(subdomains)
+        # The yield criterion
+        yield_criterion = self.yield_criterion(subdomains)
+        # Stick condition
+        scaled_orthogonality = self.orthogonality(subdomains, True)
+        c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
+        u_t_increment_scaled_to_one = (
+            scalar_to_tangential @ c_num_to_one
+        ) * u_t_increment
+        u_t_increment_scaled_to_one.set_name("u_t_increment_scaled_to_one")
+        stick_condition = (
+            scaled_orthogonality - f_norm(u_t_increment_scaled_to_one) * friction_bound
+        )
+
+        h_oi = f_heaviside(self.opening_indicator(subdomains))
+        ind = stick_condition - yield_criterion
+
+        if self.params.get("adaptive_indicator_scaling", False):
+            # Base on all fracture subdomains
+            all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
+            scale_op = self.contact_traction_estimate(all_subdomains)
+            scale = self.compute_traction_norm(
+                cast(np.ndarray, self.equation_system.evaluate(scale_op))
+            )
+            ind = ind / pp.ad.Scalar(scale)
+        return ind * h_oi
