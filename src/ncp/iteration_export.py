@@ -85,7 +85,7 @@ class IterationExporting:
                 (
                     sd,
                     "slip_tendency",
-                    slip_tendency.value(self.equation_system),
+                    np.absolute(slip_tendency.value(self.equation_system)),
                 )
             )
 
