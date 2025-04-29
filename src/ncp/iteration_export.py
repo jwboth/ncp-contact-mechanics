@@ -102,6 +102,9 @@ class IterationExporting:
                 displacement_deviation = (
                     self.displacement([sd]) - reference_displacement
                 )
+                displacement_time_increment = pp.ad.time_increment(
+                    self.displacement([sd])
+                )
                 data.append(
                     (
                         sd,
@@ -114,6 +117,13 @@ class IterationExporting:
                         sd,
                         "reference_displacement",
                         reference_displacement.value(self.equation_system),
+                    )
+                )
+                data.append(
+                    (
+                        sd,
+                        "displacement_time_increment",
+                        displacement_time_increment.value(self.equation_system),
                     )
                 )
         if hasattr(self, "has_reference_flow_state"):
