@@ -6,9 +6,6 @@ import numpy as np
 import porepy as pp
 from icecream import ic
 
-# from porepy.numerics.solvers.andersonacceleration import (
-#    AdaptiveAndersonAcceleration,  # TODO
-# )
 from porepy.numerics.solvers.andersonacceleration import AndersonAcceleration
 
 logger = logging.getLogger(__name__)
@@ -19,6 +16,9 @@ class AANewtonSolver(pp.NewtonSolver):
 
     In order to activate the Anderson acceleration,
     the parameter `aa_depth` must be set to a positive integer.
+
+    The intention of this class is to experiment with different
+    adaptive relaxation strategies as part of the Newton iterations.
 
     """
 
@@ -279,4 +279,94 @@ class AANewtonSolver(pp.NewtonSolver):
             )
         except:
             ...
+        return nonlinear_increment
+
+
+class AdaptiveNewtonSolver(pp.NewtonSolver):
+    """Newton solver with adaptive relaxation."""
+
+    def _reset(self, model):
+        if hasattr(self, "aa"):
+            self.aa.reset(0)
+        model.reset_cycling_analysis()
+        logger.info("Reset AA")
+
+    def solve(self, model) -> tuple[bool, int]:
+        if hasattr(model, "update_switch"):
+            model.update_switch(activate=True)
+        self.new_cycling = False
+        is_converged = super().solve(model)
+        self._reset(model)
+        return is_converged
+
+    def iteration(self, model) -> np.ndarray:
+        model.assemble_linear_system()
+        nonlinear_increment = model.solve_linear_system()
+        aa_depth = self.params["aa_depth"]
+        use_aa = aa_depth > 0  # Standard AA
+        stop_when_cycling = aa_depth == 0  # Stop when cycling
+        use_adaptive_aa = aa_depth == -1  # Adaptive AA (activated upon cycling)
+        use_random_relaxation = (
+            aa_depth == -2
+        )  # Random relaxation (activated upon cycling)
+        use_switch = aa_depth == -3  # Switch (activated upon cycling)
+
+        # Initialize AA
+        if (use_aa or use_adaptive_aa) and not hasattr(self, "aa"):
+            ndofs = nonlinear_increment.size
+            self.aa = AndersonAcceleration(ndofs, 0)
+            logger.info("Initialize AA")
+
+        if use_aa:
+            # Standard AA
+            xk = model.equation_system.get_variable_values(iterate_index=0)
+            xkp1 = self.aa.apply(
+                xk + nonlinear_increment,
+                nonlinear_increment,
+                model.nonlinear_solver_statistics.num_iteration,
+            )
+            nonlinear_increment = xkp1 - xk
+            logger.info(f"Apply AA with depth {self.aa._depth}")
+
+        # React to cycling
+        if hasattr(model, "cycling_window") and model.cycling_window >= 2:
+            logger.info("Simulation is cycling")
+            model.is_cycling = True
+
+            if stop_when_cycling:
+                # Stop simulation
+                logger.info("Stop simulation due to cycling")
+                model.after_nonlinear_failure()
+
+            elif use_adaptive_aa:
+                # Adaptive AA
+                self.aa.reset(
+                    max(1, model.cycling_window - 1),
+                    base_iteration=model.nonlinear_solver_statistics.num_iteration,
+                )
+                xk = model.equation_system.get_variable_values(iterate_index=0)
+                xkp1 = self.aa.apply(
+                    xk + nonlinear_increment,
+                    nonlinear_increment,
+                    model.nonlinear_solver_statistics.num_iteration,
+                )
+                nonlinear_increment = xkp1 - xk
+                logger.info(f"Apply AA with depth {self.aa._depth}")
+
+            elif use_random_relaxation:
+                # Random relaxation
+                # Random scalar between 0.5 and 1
+                # alpha = 0.3 + 0.3 * np.random.rand()
+                # alpha = 0.5
+                alpha = 0.4 + 0.4 * np.random.rand()
+                nonlinear_increment *= alpha
+                self._reset(model)
+                logger.info(f"Apply random relaxation with alpha {alpha}")
+
+            elif use_switch:
+                # Apply switch to change e.g. the relaxation outside
+                if hasattr(model, "update_switch"):
+                    model.update_switch(activate=False)
+                logger.info("Apply switch")
+
         return nonlinear_increment
