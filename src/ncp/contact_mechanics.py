@@ -193,8 +193,7 @@ class AuxiliaryContact:
 
         # Tangential basis for projection and scalar product
         tangential_basis: list[pp.ad.SparseArray] = self.basis(
-            subdomains,
-            dim=self.nd - 1,  # type: ignore[call-arg]
+            subdomains, dim=self.nd - 1
         )
 
         # Components of scalar product
@@ -231,17 +230,14 @@ class AuxiliaryContact:
         nd_vec_to_tangential = self.tangential_component(subdomains)
         t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
         u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
-
-        # Equivalent to using the time derivative of u_t, use the time increment
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
         # Compute the determinant of the two vectors
+        c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
         tangential_basis: list[pp.ad.SparseArray] = self.basis(
-            subdomains,
-            dim=self.nd - 1,  # type: ignore[call-arg]
+            subdomains, dim=self.nd - 1
         )
         scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
-        c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
         scaled_u_t_increment = (scalar_to_tangential @ c_num_to_one) * u_t_increment
 
         e_0 = tangential_basis[0]
@@ -250,10 +246,6 @@ class AuxiliaryContact:
             e_1.T @ scaled_u_t_increment
         ) * (e_0.T @ t_t)
         det.set_name("determinant")
-        # f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-        # det = self.orthogonality(subdomains) - f_norm(t_t) * f_norm(
-        #    scaled_u_t_increment
-        # )
         return det
 
 
@@ -296,8 +288,7 @@ class NCPTangentialContact:
         ones_frac = pp.ad.DenseArray(np.ones(num_cells))
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
 
-        # Functions EK: Should we try to agree on a name convention for ad functions?
-        # EK: Yes. Suggestions?
+        # Functions.
         f_sign = pp.ad.Function(ncp.sign, "sign_function")
         f_nan_to_num = pp.ad.Function(ncp.nan_to_num, "nan_to_num")
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
@@ -307,7 +298,6 @@ class NCPTangentialContact:
         )
         f_abs = pp.ad.Function(partial(pp.ad.l2_norm, 1), "abs_function")
         f_abs_reg = pp.ad.Function(ncp.abs_reg, "abs_function")
-        f_log_reg = pp.ad.Function(ncp.log_reg, "regularzied_log")
         f_log = pp.ad.Function(pp.ad.log, "log")
 
         # With the active set method, the performance of the Newton solver is sensitive
@@ -369,19 +359,33 @@ class NCPTangentialContact:
         else:
             raise NotImplementedError(f"Unknown dimension: {self.nd}")
 
-        # Principled choices for open, stick, slip
+        # Principled choices for open and closed states (required for NCP formulations)
         characteristic_open = f_characteristic(f_max(friction_bound, zeros_frac))
-        characteristic_closed = ones_frac - characteristic_open
-        characteristic_slip: pp.ad.Operator = characteristic_closed * f_characteristic(
-            f_max(yield_criterion, zeros_frac)
-        )
-        characteristic_stick: pp.ad.Operator = characteristic_closed * (
-            ones_frac - characteristic_slip
-        )
+        characteristic_open.set_name("characteristic_function_open")
 
+        characteristic_closed = ones_frac - characteristic_open
+        characteristic_closed.set_name("characteristic_function_closed")
+
+        # Characteristic functions for the different cases of singularities.
+        # Required for regularization of the NCP formulations.
+        # TODO: Clean up.
         characteristic_origin: pp.ad.Operator = characteristic_closed * (
             f_characteristic(f_norm(t_t) + f_norm(u_t_increment_scaled_to_traction))
         )
+        characteristic_origin.set_name("characteristic_function_origin")
+
+        characteristic_origin_t: pp.ad.Operator = characteristic_closed * (
+            f_characteristic(f_norm(t_t))
+        )
+        characteristic_origin_t.set_name("characteristic_function_origin_traction_t")
+
+        # characteristic_origin_u: pp.ad.Operator = (
+        #    characteristic_closed
+        #    * f_characteristic(f_norm(u_t_increment_scaled_to_traction))
+        # )
+        # characteristic_origin_u.set_name(
+        #    "characteristic_function_origin_u"
+        # )
 
         characteristic_stick_slip_transition: pp.ad.Operator = (
             characteristic_closed
@@ -390,11 +394,6 @@ class NCPTangentialContact:
                 + f_norm(u_t_increment_scaled_to_traction)
             )
         )
-        characteristic_open.set_name("characteristic_function_open")
-        characteristic_closed.set_name("characteristic_function_closed")
-        characteristic_slip.set_name("characteristic_function_slip")
-        characteristic_stick.set_name("characteristic_function_stick")
-        characteristic_origin.set_name("characteristic_function_origin")
         characteristic_stick_slip_transition.set_name(
             "characteristic_function_stick_slip_transition"
         )
@@ -416,7 +415,32 @@ class NCPTangentialContact:
                 yield_criterion,
                 scaled_orthogonality
                 - f_norm(u_t_increment_scaled_to_one) * friction_bound,
+                # Used in some literature, but does not work well in our practice
+                # f_norm(u_t_increment_scaled_to_traction),
             )
+
+            # Backup of some abbreviations - TODO: Clean up
+            # closed_equation_1 = yield_criterion
+            # closed_equation_2 = (
+            #     scaled_orthogonality
+            #     - f_norm(u_t_increment_scaled_to_one) * friction_bound
+            # )
+
+            # yield_criterion_plus = pp.ad.Scalar(0.5) * friction_bound - f_norm(
+            #    t_t - pp.ad.Scalar(0.5) * friction_bound
+            # )
+            # yield_criterion_minus = pp.ad.Scalar(0.5) * friction_bound - f_norm(
+            #    -t_t - pp.ad.Scalar(0.5) * friction_bound
+            # )
+            # closed_equation_plus: pp.ad.Operator = ncp.min(
+            #    yield_criterion_plus, u_t_increment_scaled_to_traction
+            # )
+            # closed_equation_minus: pp.ad.Operator = ncp.min(
+            #    yield_criterion_minus, -u_t_increment_scaled_to_traction
+            # )
+            # closed_equation: pp.ad.Operator = ncp.min(
+            #    closed_equation_plus, closed_equation_minus
+            # )
 
         elif ncp_type == "min-sqrt":
             stick_term = (
@@ -573,12 +597,11 @@ class NCPTangentialContact:
         except:
             ...
 
-        # Copy closed equation to slip and stick if not defined
-        if "stick_equation" not in locals():
-            stick_equation = closed_equation
-        if "slip_equation" not in locals():
-            slip_equation = closed_equation
+        # Split tangential basis
+        e_0 = tangential_basis[0]
+        e_1 = tangential_basis[-1]
 
+        # Characteristic function for the regularization
         regularization = self.params.get("stick_slip_regularization")
         match regularization:
             case "none":
@@ -594,24 +617,46 @@ class NCPTangentialContact:
                 _characteristic_singular = (
                     characteristic_origin + characteristic_stick_slip_transition
                 )
+            case "origin_t_and_stick_slip_transition":
+                _characteristic_singular = (
+                    characteristic_origin_t + characteristic_stick_slip_transition
+                )
 
             case _:
                 assert False, f"Unknown complementary_approach: {regularization}"
 
-        e_0 = tangential_basis[0]
-        e_1 = tangential_basis[-1]
-        equation: pp.ad.Operator = (
-            (scalar_to_tangential @ characteristic_open) * t_t
-            + (scalar_to_tangential @ characteristic_stick) * (e_0 @ stick_equation)
-            + (scalar_to_tangential @ characteristic_slip) * (e_0 @ slip_equation)
-            + (scalar_to_tangential @ characteristic_closed)
-            * (e_1 @ self.alignment(subdomains))
-            + (scalar_to_tangential @ _characteristic_singular)
-            * (u_t - u_t.previous_iteration())
-            # TODO use regularization parameter here? e.g. c_num_to_traction * 1e-10?
-            # * (c_num_to_traction @ (u_t - u_t.previous_iteration()))
+        # Similar to other NCP approaches, we need to define the characteristic
+        # functions for the open and closed states, and for the singularities.
+        chi_open = scalar_to_tangential @ characteristic_open
+        chi_open.set_name("chi_open")
+        chi_singular = _characteristic_singular
+        chi_singular.set_name("chi_singular")
+        chi_closed_singular = scalar_to_tangential @ (
+            characteristic_closed * chi_singular
         )
+        chi_closed_singular.set_name("chi_closed_singular")
+        chi_closed_regular = scalar_to_tangential @ (
+            characteristic_closed * (pp.ad.Scalar(1.0) - chi_singular)
+        )
+        chi_closed_regular.set_name("chi_closed_regular")
 
+        open_equation: pp.ad.Operator = t_t
+        open_equation.set_name("tangential_open_equation")
+        alignment_term = self.alignment(subdomains)
+        alignment_term.set_name("alignment_term")
+        ncp_equation: pp.ad.Operator = e_0 @ closed_equation + e_1 @ alignment_term
+        ncp_equation.set_name("tangential_ncp_equation")
+        ncp_regularization = (
+            # u_t_increment_scaled_to_traction
+            u_t - u_t.previous_iteration()
+        )
+        ncp_regularization.set_name("tangential_ncp_regularization")
+
+        equation: pp.ad.Operator = (
+            chi_open * open_equation
+            + chi_closed_regular * ncp_equation
+            + chi_closed_singular * ncp_regularization
+        )
         equation.set_name("tangential_fracture_deformation_equation")
         return equation
 
@@ -697,14 +742,14 @@ class LinearRadialReturnTangentialContact:
         # case t_t = 0 cannot be deduced from the standard version of the complementary
         # function (i.e. without the characteristic function). Filter out the other
         # terms in this case to improve convergence
-        #f_nan_to_num = pp.ad.Function(ncp.nan_to_num, "nan_to_num")
-        #min_term = (
+        # f_nan_to_num = pp.ad.Function(ncp.nan_to_num, "nan_to_num")
+        # min_term = (
         #    pp.ad.Scalar(-1.0)
         #    * f_max(
         #        pp.ad.Scalar(-1.0) * ones_frac,
         #        pp.ad.Scalar(-1.0) * b_p / norm_tangential_sum,
         #    )
-        #)
+        # )
         # equation: pp.ad.Operator = t_t - f_nan_to_num(tangential_sum * (scalar_to_tangential @ min_term))
         # equation: pp.ad.Operator = t_t - f_nan_to_num(tangential_sum * (scalar_to_tangential @ (characteristic * min_term)))
         min_term = scalar_to_tangential @ (
