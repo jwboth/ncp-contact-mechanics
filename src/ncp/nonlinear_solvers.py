@@ -6,7 +6,7 @@ import numpy as np
 import porepy as pp
 from icecream import ic
 
-from porepy.numerics.solvers.andersonacceleration import AndersonAcceleration
+from porepy.numerics.nonlinear.anderson_acceleration import AndersonAcceleration
 
 logger = logging.getLogger(__name__)
 
