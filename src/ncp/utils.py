@@ -4,6 +4,7 @@ from typing import TypeVar
 import numpy as np
 import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
+import scipy.sparse as sps
 
 FloatType = TypeVar("FloatType", AdArray, np.ndarray, float)
 
