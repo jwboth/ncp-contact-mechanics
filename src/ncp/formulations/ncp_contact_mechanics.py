@@ -156,7 +156,7 @@ class NCP_TangentialContact:
         regularization = self.params.get(
             "stick_slip_regularization",
             "origin",
-            # "origin_and_stick_slip_transition"
+            # "origin_and_stick_slip_transition",
         )
         match regularization:
             case "origin":
@@ -223,8 +223,15 @@ class NCP_MIN_NormalContact(NCP_NormalContact):
 
     def normal_ncp_function(self, force, gap) -> pp.ad.Operator:
         """Return the NCP function for normal contact."""
-        # TODO: mu?
         return ncp.min(force, gap)
+
+
+class NCP_MIN_MU_NormalContact(NCP_NormalContact):
+    """NCP formulation for normal contact."""
+
+    def normal_ncp_function(self, force, gap) -> pp.ad.Operator:
+        """Return the NCP function for normal contact."""
+        return ncp.min(force, gap, mu=1e-5)
 
 
 class NCP_FB_NormalContact(NCP_NormalContact):
@@ -232,10 +239,17 @@ class NCP_FB_NormalContact(NCP_NormalContact):
 
     def normal_ncp_function(self, force, gap) -> pp.ad.Operator:
         """Return the NCP function for normal contact."""
-        return ncp.min_regularized_fb(force, gap, tol=1e-10)
-        # TODO Test!
-        # equation = ncp.min_regularized_fb(force, gap, tol=1e-10, mu=1e-9)
-        # equation = ncp.fb(force, gap)
+
+        # return ncp.min_regularized_fb(force, gap, tol=1e-10)
+        return ncp.fb(force, gap)
+
+
+class NCP_FB_MU_NormalContact(NCP_NormalContact):
+    """NCP formulation for normal contact using the FB function."""
+
+    def normal_ncp_function(self, force, gap) -> pp.ad.Operator:
+        """Return the NCP function for normal contact."""
+        return ncp.min_regularized_fb(force, gap, tol=1e-10, mu=1e-5)
 
 
 class NCP_MIN_TangentialContact(NCP_TangentialContact):
@@ -251,9 +265,9 @@ class NCP_FB_TangentialContact(NCP_TangentialContact):
 
     def tangential_ncp_function(self, yield_criterion, colinearity) -> pp.ad.Operator:
         """Return the NCP function for tangential contact."""
-        return ncp.min_regularized_fb(yield_criterion, colinearity, tol=1e-10)
         # TODO Test!
-        # equation = ncp.fb(yield_criterion, colinearity, mu...)
+        # return ncp.min_regularized_fb(yield_criterion, colinearity, tol=1e-10)
+        return ncp.fb(yield_criterion, colinearity)
 
 
 # TODO clean up!
