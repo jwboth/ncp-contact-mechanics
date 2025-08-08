@@ -7,10 +7,6 @@ from icecream import ic
 
 import logging
 
-# Set logging level
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
-
 
 class ScaledNCPAdapters:
     def characteristic_distance(self, subdomains):
