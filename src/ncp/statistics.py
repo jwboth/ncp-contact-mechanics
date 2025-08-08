@@ -70,7 +70,7 @@ class LogPerformanceData:
         except sps.linalg.MatrixRankWarning:
             self.nonlinear_solver_statistics.status = "singular"
             self.nonlinear_solver_statistics.save()
-            #raise ValueError("Matrix is singular.")
+            # raise ValueError("Matrix is singular.")
             logger.info("Matrix is singular.")
 
         # Check if jacobian (sparse matrix) contains nan values
@@ -79,12 +79,12 @@ class LogPerformanceData:
         if np.isnan(A.data).any():
             self.nonlinear_solver_statistics.status = "nan_matrix"
             self.nonlinear_solver_statistics.save()
-            #raise ValueError("Matrix contains NaN values.")
+            # raise ValueError("Matrix contains NaN values.")
             logger.info("Matrix contains NaN values.")
         if np.isnan(b).any():
             self.nonlinear_solver_statistics.status = "nan_residual"
             self.nonlinear_solver_statistics.save()
-            #raise ValueError("Right-hand side contains NaN values.")
+            # raise ValueError("Right-hand side contains NaN values.")
             logger.info("Right-hand side contains NaN values.")
 
         # Check if solution is none
@@ -92,7 +92,7 @@ class LogPerformanceData:
         if np.isnan(sol).any():
             self.nonlinear_solver_statistics.status = "nan"
             self.nonlinear_solver_statistics.save()
-            #raise ValueError("Solution contains NaN values.")
+            # raise ValueError("Solution contains NaN values.")
             logger.info("Solution contains NaN values.")
 
         # Unknown failure
@@ -345,7 +345,7 @@ class LogPerformanceData:
                     """PyPardiso could not be imported,
                     falling back on scipy.sparse.linalg.spsolve"""
                 )
-            #x = sparse_solver(A, b)
+            # x = sparse_solver(A, b)
             try:
                 x = sparse_solver(A, b)
             except RuntimeError:
