@@ -5,3 +5,4 @@ from .radial_return_contact_mechanics import RadialReturnTangentialContact
 from .bipotential_orthogonal_return_contact_mechanics import (
     BipotentialOrthogonalReturnContact,
 )
+from .weighted_return_contact_mechanics import WeightedReturnContact
