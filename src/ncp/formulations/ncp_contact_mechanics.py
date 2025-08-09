@@ -27,11 +27,11 @@ class NCP_NormalContact:
         u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
 
         # Numerical weight
-        c_num_to_traction = self.contact_mechanics_numerical_constant(subdomains)
+        c_num = self.contact_mechanics_numerical_constant(subdomains)
 
         # The normal component of the contact force and the displacement jump
         force = pp.ad.Scalar(-1.0) * t_n
-        gap = c_num_to_traction * (u_n - self.fracture_gap(subdomains))
+        gap = c_num * (u_n - self.fracture_gap(subdomains))
 
         equation: pp.ad.Operator = self.normal_ncp_function(force, gap)
         equation.set_name("normal_fracture_deformation_equation")
