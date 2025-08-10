@@ -1,21 +1,19 @@
 import porepy as pp
 from functools import partial
 import numpy as np
+from abc import abstractmethod
 
 
 class WeightedReturnContact:
-    @property
-    def default_weight_return_map(self) -> float:
-        """Default value for the weight in the weighted return map."""
-        return 0.5
+    @abstractmethod
+    def weight_return_map(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Return the weight for the weighted return map.
 
-    def set_weight_return_map(self) -> None:
-        self.weight = pp.ad.Scalar(self.default_weight_return_map, "weight")
+        Weight 0.0 corresponds to the radial return projection.
+        Weight 1.0 corresponds to the bipotential orthogonal projection.
 
-    def randomize_weight_return_map(self) -> None:
-        if not hasattr(self, "weight"):
-            self.set_weight_return_map()
-        self.weight.set_value(np.random.normal(self.default_weight_return_map, 0.5))
+        """
+        raise NotImplementedError
 
     def normal_bipotential_projection(
         self, subdomains: list[pp.Grid]
@@ -64,17 +62,14 @@ class WeightedReturnContact:
         nd_vec_to_normal = self.normal_component(subdomains)
         t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
 
-        # Setup of weight
-        if not hasattr(self, "weight"):
-            self.set_weight_return_map()
-
         # Assignment of traction to the projection of the augmented traction (normal component)
         bipotential_projection = self.normal_bipotential_projection(subdomains)
         radial_return_projection = self.normal_radial_return_projection(subdomains)
         equation = (
             t_n
-            - self.weight * bipotential_projection
-            - (pp.ad.Scalar(1.0) - self.weight) * radial_return_projection
+            - self.weight_return_map(subdomains) * bipotential_projection
+            - (pp.ad.Scalar(1.0) - self.weight_return_map(subdomains))
+            * radial_return_projection
         )
         equation.set_name("normal_fracture_deformation_equation")
         return equation
@@ -188,17 +183,14 @@ class WeightedReturnContact:
         nd_vec_to_tangential = self.tangential_component(subdomains)
         t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
 
-        # Setup of weight
-        if not hasattr(self, "weight"):
-            self.set_weight_return_map()
-
         # Projections
         bipotential_projection = self.tangential_bipotential_projection(subdomains)
         radial_return_projection = self.tangential_radial_return_projection(subdomains)
         equation = (
             t_t
-            - self.weight * bipotential_projection
-            - (pp.ad.Scalar(1.0) - self.weight) * radial_return_projection
+            - self.weight_return_map(subdomains) * bipotential_projection
+            - (pp.ad.Scalar(1.0) - self.weight_return_map(subdomains))
+            * radial_return_projection
         )
         equation.set_name("tangential_fracture_deformation_equation")
         return equation
@@ -282,3 +274,36 @@ class WeightedReturnContact:
         }
 
         return scalar, chi, t
+
+
+class ConstantWeightedReturnContact(WeightedReturnContact):
+    """A weighted return contact formulation with a constant weight."""
+
+    def weight_return_map(self, subdomains) -> None:
+        return pp.ad.Scalar(0.5)
+
+
+class RandomWeightedReturnContact(WeightedReturnContact):
+    def before_nonlinear_iteration(self) -> None:
+        """Randomize the weight for the weighted return map."""
+        if not hasattr(self, "weight"):
+            self.random_weight_return_map = pp.ad.Scalar(
+                1.0, "random_weight_return_map"
+            )
+        self.random_weight_return_map.set_value(np.random.uniform(0, 1))
+
+    def solver_info(self) -> dict[str, float]:
+        """Return solver info for logging."""
+        return {
+            "random_weight_return_map": self.random_weight_return_map.value(
+                self.equation_system
+            )
+        }
+
+    def weight_return_map(self, subdomains) -> pp.ad.Operator:
+        """Return the weight for the weighted return map."""
+        if not hasattr(self, "random_weight_return_map"):
+            self.random_weight_return_map = pp.ad.Scalar(
+                np.random.uniform(0, 1), "random_weight_return_map"
+            )
+        return self.random_weight_return_map
