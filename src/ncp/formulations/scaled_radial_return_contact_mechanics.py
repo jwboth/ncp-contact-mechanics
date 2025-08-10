@@ -123,8 +123,10 @@ class RandomScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCont
 
     def scaling_exponent_radial_return(self, subdomains) -> pp.ad.Operator:
         """Scaling for the radial return projection."""
-        if not hasattr(self, "aling_exponent"):
-            self.random_scaling_exponent = pp.ad.Scalar(np.random.normal(0, 0.5) ** 2)
+        if not hasattr(self, "random_scaling_exponent"):
+            self.random_scaling_exponent = pp.ad.Scalar(
+                np.clip(np.random.normal(0, 1) ** 2, None, 1.0)
+            )
 
         return self.random_scaling_exponent
 
