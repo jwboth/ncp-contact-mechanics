@@ -2,7 +2,6 @@
 
 import porepy as pp
 from functools import partial
-import numpy as np
 
 
 def min(a: pp.ad.Operator, b: pp.ad.Operator, mu: float = 0.0) -> pp.ad.Operator:
@@ -17,10 +16,6 @@ def min(a: pp.ad.Operator, b: pp.ad.Operator, mu: float = 0.0) -> pp.ad.Operator
         pp.ad.Operator: The minimum of a and b, regularized by mu.
 
     """
-    if not np.isclose(mu, 0.0):
-        raise NotImplementedError("shouldn't one also subtract mu**0.5?")
-    # f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-    # return pp.ad.Scalar(-1.0) * f_max(pp.ad.Scalar(-1.0) * a, pp.ad.Scalar(-1.0) * b)
     return pp.ad.Scalar(0.5) * ((a + b) - ((a - b) ** 2 + pp.ad.Scalar(mu)) ** 0.5)
 
 
@@ -36,8 +31,6 @@ def fb(a: pp.ad.Operator, b: pp.ad.Operator, mu: float = 0.0) -> pp.ad.Operator:
         pp.ad.Operator: The Fischer-Burmeister function value.
 
     """
-    if not np.isclose(mu, 0.0):
-        raise NotImplementedError("shouldn't one also subtract mu**0.5?")
     return (pp.ad.Scalar(mu) + a**2 + b**2) ** 0.5 - (a + b)
 
 
