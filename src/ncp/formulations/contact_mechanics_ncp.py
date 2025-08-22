@@ -231,7 +231,8 @@ class NCP_MIN_MU_NormalContact(NCP_NormalContact):
 
     def normal_ncp_function(self, force, gap) -> pp.ad.Operator:
         """Return the NCP function for normal contact."""
-        return ncp.min(force, gap, mu=1e-5)
+        mu = self.params["contact"].get("ncp-regularization", 1e-5)
+        return ncp.min(force, gap, mu=mu)
 
 
 class NCP_FB_NormalContact(NCP_NormalContact):
@@ -249,7 +250,9 @@ class NCP_FB_MU_NormalContact(NCP_NormalContact):
 
     def normal_ncp_function(self, force, gap) -> pp.ad.Operator:
         """Return the NCP function for normal contact."""
-        return ncp.min_regularized_fb(force, gap, tol=1e-10, mu=1e-5)
+        mu = self.params["contact"].get("ncp-regularization", 1e-5)
+        return ncp.fb(force, gap, mu=mu)
+        # return ncp.min_regularized_fb(force, gap, tol=1e-10, mu=1e-5)
 
 
 class NCP_MIN_TangentialContact(NCP_TangentialContact):
