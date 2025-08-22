@@ -2,21 +2,20 @@ import porepy as pp
 from functools import partial
 import numpy as np
 
-# class Characteristic(pp.ad.AbstractFunction):
-#
-#    def __init__(self, condition: pp.ad.Operator):
-#        super().__init__(partial(pp.ad.functions.characteristic_function, condition), "characteristic_function")
-#        self.condition = condition
-#
-#    def func
-#
-#
-# def characteristic(arg: pp.ad.Operator, condition: pp.ad.Operator) -> pp.ad.Operator:
-#    """Characteristic function for the argument."""
-#    return pp.ad.Function(partial(pp.ad.functions.characteristic_function, arg), "characteristic_function")
-
 
 class BipotentialOrthogonalReturnContact:
+    """The bipotential orthogonal return contact mechanics formulation.
+
+    It is based on the de Saxce-Feng formulation/bipotential theory, which
+    uses a different augmentation of the contact traction than the radial
+    return formulation. The project follows then a orthogonal return map
+    onto the Coulomb cone.
+
+    The bipotential formulation does not separate between normal
+    and tangential equations.
+
+    """
+
     def normal_fracture_deformation_equation(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
