@@ -23,7 +23,7 @@ class ScaledAlartCurnier_NormalContact:
     contact_mechanics_numerical_constant: pp.ad.Operator
     """Augmentation constant."""
 
-    numerical: pp.ad.NumericalParameters
+    numerical: pp.NumericalConstants
     """Numerical parameters."""
 
     @abstractmethod
