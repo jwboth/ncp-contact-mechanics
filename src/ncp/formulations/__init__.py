@@ -4,7 +4,7 @@ from .contact_mechanics_ncp import NCP_MIN_TangentialContact, NCP_FB_TangentialC
 from .contact_mechanics_radial_return import (
     RadialReturnTangentialContact,
 )
-from .bipotential_orthogonal_return_contact_mechanics import (
+from .contact_mechanics_bipotential import (
     BipotentialOrthogonalReturnContact,
 )
 from .contact_mechanics_weighted_return import (
