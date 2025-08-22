@@ -41,6 +41,9 @@ class NCP_NormalContact:
 class NCP_TangentialContact:
     """NCP formulation for tangential contact."""
 
+    params: dict
+    """Model parameters."""
+
     @abstractmethod
     def tangential_ncp_function(self, yield_criterion, colinearity) -> pp.ad.Operator:
         """Return the NCP function for tangential contact."""
@@ -229,6 +232,9 @@ class NCP_MIN_NormalContact(NCP_NormalContact):
 class NCP_MIN_MU_NormalContact(NCP_NormalContact):
     """NCP formulation for normal contact."""
 
+    params: dict
+    """Model parameters."""
+
     def normal_ncp_function(self, force, gap) -> pp.ad.Operator:
         """Return the NCP function for normal contact."""
         mu = self.params["contact"].get("ncp-regularization", 1e-5)
@@ -247,6 +253,9 @@ class NCP_FB_NormalContact(NCP_NormalContact):
 
 class NCP_FB_MU_NormalContact(NCP_NormalContact):
     """NCP formulation for normal contact using the FB function."""
+
+    params: dict
+    """Model parameters."""
 
     def normal_ncp_function(self, force, gap) -> pp.ad.Operator:
         """Return the NCP function for normal contact."""
