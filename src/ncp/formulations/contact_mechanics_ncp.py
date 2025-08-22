@@ -105,7 +105,7 @@ class NCP_TangentialContact:
         u_t_increment_scaled.set_name("u_t_increment_scaled")
 
         # Orthogonality condition
-        scaled_orthogonality = self.orthogonality(subdomains, scaled=True)
+        scaled_orthogonality = self.orthogonality(subdomains)
 
         # Coulomb friction bound
         friction_bound = self.friction_bound(subdomains)
