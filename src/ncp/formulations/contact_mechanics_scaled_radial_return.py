@@ -77,7 +77,7 @@ class ScaledRadialReturnTangentialContact:
         # Define scalings and integrate in the radial return projection.
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
-        scaling = f_max(norm_t_t_trial, b_p)
+        scaling = f_max(norm_t_t_trial, b_p)  # order on purpose for slip
         t_t_scaling = scaling ** self.scaling_exponent_radial_return(subdomains)
         t_t_trial_scaling = b_p * scaling ** (
             self.scaling_exponent_radial_return(subdomains) - pp.ad.Scalar(1.0)
@@ -100,7 +100,7 @@ class ScaledRadialReturnTangentialContact:
 class ConstantScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialContact):
     def scaling_exponent_radial_return(self, subdomains) -> pp.ad.Operator:
         """Scaling for the radial return projection."""
-        exponent = pp.ad.Scalar(0.1)
+        exponent = pp.ad.Scalar(self.params["contact"]["normal_scaling_exponent"])
         return exponent
 
 

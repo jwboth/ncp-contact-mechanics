@@ -100,8 +100,7 @@ class ScaledAlartCurnier_NormalContact:
 class ConstantScaledAlartCurnier_NormalContact(ScaledAlartCurnier_NormalContact):
     def scaling_exponent_normal_return(self, subdomains) -> pp.ad.Operator:
         """Scaling for the normal return projection."""
-        # TODO fetch from config
-        exponent = pp.ad.Scalar(-1)
+        exponent = pp.ad.Scalar(self.params["contact"]["normal_scaling_exponent"])
         return exponent
 
 
