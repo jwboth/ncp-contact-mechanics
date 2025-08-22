@@ -3,7 +3,6 @@ from .contact_mechanics_ncp import NCP_MIN_MU_NormalContact, NCP_FB_MU_NormalCon
 from .contact_mechanics_ncp import NCP_MIN_TangentialContact, NCP_FB_TangentialContact
 from .contact_mechanics_radial_return import (
     RadialReturnTangentialContact,
-    RadialReturnTangentialContact2,
 )
 from .bipotential_orthogonal_return_contact_mechanics import (
     BipotentialOrthogonalReturnContact,
