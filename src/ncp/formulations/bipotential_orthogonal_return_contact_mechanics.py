@@ -20,13 +20,12 @@ class BipotentialOrthogonalReturnContact:
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         # Quantities required for the projection.
-        scalar, chi, t = self._auxiliary_orthogonal_contact_projection(subdomains)
-
-        # Characteristic functions
-        characteristic = chi["chi_outside_dual_cone"]
+        scalar, characteristic_outside_dual_cone, t = (
+            self._auxiliary_orthogonal_contact_projection(subdomains)
+        )
 
         # Projection of the augmented traction (normal component).
-        projection_n = characteristic * (
+        projection_n = characteristic_outside_dual_cone * (
             t["t_n_augmented"] - scalar["weight"] * scalar["mu"]
         )
 
@@ -42,7 +41,9 @@ class BipotentialOrthogonalReturnContact:
         """Contact mechanics equation for the tangential constraints."""
 
         # Quantities required for the projection.
-        scalar, chi, t = self._auxiliary_orthogonal_contact_projection(subdomains)
+        scalar, characteristic_outside_dual_cone, t = (
+            self._auxiliary_orthogonal_contact_projection(subdomains)
+        )
 
         # Projection of the augmented traction (tangential component).
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
@@ -50,23 +51,16 @@ class BipotentialOrthogonalReturnContact:
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
 
-        # Characteristic functions
-        characteristic = scalar_to_tangential @ chi["chi_outside_dual_cone"]
-        chi_non_origin = pp.ad.Scalar(1.0) - chi["chi_origin"]
-
-        # Projection
+        # Orthogonal projection of the augmented traction onto the Coulomb cone.
+        # - if in the dual cone (incl orirgin), send to zero
+        # - if in the origin, send to zero - results in setting tangential traction to zero
         cut_off = pp.ad.Scalar(self.numerical.open_state_tolerance)
-        projection_t = characteristic * (
-            t["t_t_augmented"]
-            - scalar_to_tangential
-            @ (
-                chi_non_origin
-                * scalar["weight"]
-                / f_max(f_norm(t["t_t_augmented"]), cut_off)
-            )
-            * t["t_t_augmented"]
+        scaling = scalar_to_tangential @ (
+            scalar["weight"] / f_max(f_norm(t["t_t_augmented"]), cut_off)
         )
-
+        projection_t = characteristic_outside_dual_cone * (
+            t["t_t_augmented"] - scaling * t["t_t_augmented"]
+        )
         equation = t["t_t"] - projection_t
         equation.set_name("tangential_fracture_deformation_equation")
         return equation
@@ -84,9 +78,7 @@ class BipotentialOrthogonalReturnContact:
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
         # Functions.
-        f_abs = pp.ad.Function(partial(pp.ad.l2_norm, 1), "abs_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_characteristic = pp.ad.Function(
             partial(
                 pp.ad.functions.characteristic_function,
@@ -119,24 +111,17 @@ class BipotentialOrthogonalReturnContact:
             "t_t_augmented": t_t_augmented,
         }
 
-        # Zero array for later comparison.
+        # Prepare for extracting positive parts.
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         num_cells = sum([sd.num_cells for sd in subdomains])
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
 
-        # Characterictic functions. The augmented traction lies outside the dual cone if the
-        # tangential part (scaled by the friction coefficient) has larger modulus than the normal part.
-        chi_origin = f_characteristic(f_abs(t_n_augmented) + f_norm(t_t_augmented))
+        # Characteristic function for the outside dual cone.
         dual_cone_condition = t_n_augmented - mu * f_norm(t_t_augmented)
-        chi_outside_dual_cone = (
-            f_characteristic(f_max(dual_cone_condition, zeros_frac)) - chi_origin
+        characteristic_outside_dual_cone = f_characteristic(
+            f_max(dual_cone_condition, zeros_frac)
         )
-        chi_outside_dual_cone.set_name("chi_outside_dual_cone")
-
-        # Collection of characteristic functions.
-        chi = {
-            "chi_outside_dual_cone": chi_outside_dual_cone,
-            "chi_origin": chi_origin,
-        }
+        characteristic_outside_dual_cone.set_name("characteristic_outside_dual_cone")
 
         # Weighting
         weight = f_max(f_norm(t_t_augmented) + mu * t_n_augmented, zeros_frac) / (
@@ -149,4 +134,4 @@ class BipotentialOrthogonalReturnContact:
             "mu": mu,
         }
 
-        return scalar, chi, t
+        return scalar, characteristic_outside_dual_cone, t
