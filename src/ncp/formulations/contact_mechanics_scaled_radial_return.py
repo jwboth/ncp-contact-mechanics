@@ -98,13 +98,17 @@ class ScaledRadialReturnTangentialContact:
 
 
 class ConstantScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialContact):
+    """Scaled radial return tangential contact with user-defined scaling exponent."""
+
     def scaling_exponent_radial_return(self, subdomains) -> pp.ad.Operator:
-        """Scaling for the radial return projection."""
-        exponent = pp.ad.Scalar(self.params["contact"]["normal_scaling_exponent"])
+        """Scaling exponent for the radial return projection."""
+        exponent = pp.ad.Scalar(self.params["contact"]["tangential_scaling_exponent"])
         return exponent
 
 
 class RandomScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialContact):
+    """Scaled radial return tangential contact with random scaling exponent."""
+
     def before_nonlinear_iteration(self) -> None:
         if not hasattr(self, "random_scaling_exponent"):
             self.random_scaling_exponent = pp.ad.Scalar(1.0)
@@ -122,7 +126,7 @@ class RandomScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCont
         }
 
     def scaling_exponent_radial_return(self, subdomains) -> pp.ad.Operator:
-        """Scaling for the radial return projection."""
+        """Scaling exponent for the radial return projection."""
         if not hasattr(self, "random_scaling_exponent"):
             self.random_scaling_exponent = pp.ad.Scalar(
                 np.clip(np.random.normal(0, 1) ** 2, None, 1.0)
@@ -132,7 +136,13 @@ class RandomScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCont
 
 
 class DecayingScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialContact):
+    """Scaled radial return tangential contact with scaling exponent decaying to 0
+    away from the feasible region.
+
+    """
+
     def scaling_exponent_radial_return(self, subdomains) -> pp.ad.Operator:
+        """Scaling exponent for the radial return projection."""
         # Some functions.
         f_exp = pp.ad.Function(pp.ad.exp, "exp_function")
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
