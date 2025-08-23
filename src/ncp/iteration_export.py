@@ -29,6 +29,42 @@ class IterationExporting:
             length_scale=self.units.m,
         )
 
+    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+        """Integrate iteration export into simulation workflow.
+
+        Order of operations is important, super call distributes the solution
+        to iterate subdictionary.
+
+        """
+        super().after_nonlinear_iteration(solution_vector)
+        self.save_data_iteration()
+        self.iteration_exporter.write_pvd()
+
+    def save_data_iteration(self):
+        """Export current solution to vtu files.
+
+        This method is typically called by after_nonlinear_iteration.
+
+        Having a separate exporter for iterations avoids distinguishing
+        between iterations and time steps in the regular exporter's
+        history (used for export_pvd).
+
+        """
+        # To make sure the nonlinear iteration index does not interfere with
+        # the time part, we multiply the latter by the next power of ten above
+        # the maximum number of nonlinear iterations. Default value set to 10
+        # in accordance with the default value used in NewtonSolver
+        n = self.params.get("nl_max_iterations", 10)
+        r = 10
+        while r <= n:
+            r *= 10
+        self.iteration_exporter.write_vtu(
+            self.data_to_export_iteration(),
+            time_dependent=True,
+            time_step=self.nonlinear_solver_statistics.num_iteration
+            + r * self.time_manager.time_index,
+        )
+
     def data_to_export(self):
         """Add data to regular data export:
 
@@ -462,15 +498,9 @@ class IterationExporting:
         # Add contact states
         try:
             states = self.compute_fracture_states(split_output=True)
-            try:
-                prev_states = self.prev_states.copy()
-            except:
-                prev_states = states.copy()
             for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
-                data.append((sd, "states", states[i]))
-                data.append((sd, "prev states", prev_states[i]))
-            # Cache contact states
-            self.prev_state = states.copy()
+                data.append((sd, "contact states", states[i]))
+
         except:
             not_exported.append("contact states")
 
@@ -479,232 +509,3 @@ class IterationExporting:
             logger.warning(f"Not all data could be exported. Missing: {not_exported}")
 
         return data
-
-    def reset_cycling_analysis(self):
-        """Clean up all cached data for cycling analysis."""
-
-        if hasattr(self, "cached_contact_states"):
-            del self.cached_contact_states
-        if hasattr(self, "cached_contact_vars"):
-            del self.cached_contact_vars
-        if hasattr(self, "stagnating_states"):
-            del self.stagnating_states
-        if hasattr(self, "cycling_window"):
-            del self.cycling_window
-        if hasattr(self, "cached_contact_normal_residuals"):
-            del self.cached_contact_normal_residuals
-        if hasattr(self, "cached_contact_tangential_residuals"):
-            del self.cached_contact_tangential_residuals
-        # if hasattr(self, "previous_states"):
-        #    assert hasattr(self, "states")
-        #    self.previous_states = self.states.copy()
-
-    def check_cycling(self):
-        """Check for cycling in contact states."""
-
-        # Initialize cache
-        if not hasattr(self, "cached_contact_states"):
-            self.cached_contact_states = []
-        if not hasattr(self, "cached_contact_vars"):
-            self.cached_contact_vars = []
-        if not hasattr(self, "cached_contact_normal_residuals"):
-            self.cached_contact_normal_residuals = []
-        if not hasattr(self, "cached_contact_tangential_residuals"):
-            self.cached_contact_tangential_residuals = []
-        cycling = False
-        cycling_window = 0
-        stagnating_states = False
-
-        # Fetch states and variables
-        self.states = self.compute_fracture_states(split_output=True)
-        vars = self.fetch_fracture_vars()
-        normal_residuals, tangential_residuals = self.fetch_fracture_residuals()
-
-        # Determine change in time, i.e., the total difference between states and
-        # previous_states
-        try:
-            total_changes_in_time = np.count_nonzero(
-                np.logical_not(
-                    np.isclose(
-                        np.concatenate(self.states),
-                        np.concatenate(self.previous_states),
-                    )
-                )
-            )
-        except:
-            total_changes_in_time = 0
-        logger.info(f"Changes in time: {total_changes_in_time}")
-
-        self.nonlinear_solver_statistics.total_contact_state_changes_in_time = (
-            total_changes_in_time
-        )
-
-        # Check for stagnation in contact states
-        required_length = 12
-        if len(self.cached_contact_states) >= required_length:
-            stagnating_states = True
-            for i in range(required_length):
-                if not np.allclose(
-                    np.concatenate(self.states),
-                    np.concatenate(self.cached_contact_states[-i - 1]),
-                ):
-                    stagnating_states = False
-                    break
-        if stagnating_states:
-            logger.info(f"Stagnating states detected.")
-
-        elif len(self.cached_contact_states) > 0:
-            # Determine detailed contact state changes
-            changes = np.zeros((3, 3), dtype=int)
-            num_contact_states = np.zeros(3, dtype=int)
-            try:
-                for i in range(3):
-                    num_contact_states[i] = int(
-                        np.sum(np.concatenate(self.states) == i)
-                    )
-                    for j in range(3):
-                        changes[i, j] = int(
-                            np.sum(
-                                np.logical_and(
-                                    np.concatenate(self.states) == i,
-                                    np.concatenate(self.cached_contact_states[-1]) == j,
-                                )
-                            )
-                        )
-            except:
-                ...
-            logger.info(f"Changes in states: \n{changes}")
-
-            # Count general changes
-            try:
-                total_changes = np.count_nonzero(
-                    np.logical_not(
-                        np.isclose(
-                            np.concatenate(self.states),
-                            np.concatenate(self.cached_contact_states[-1]),
-                        )
-                    )
-                )
-            except:
-                total_changes = 0
-            logger.info(f"Total changes: {total_changes}")
-
-            # Check if changes are small
-            if total_changes < 7:
-                self.small_changes = True
-            else:
-                self.small_changes = False
-
-            # Monitor contact state changes
-            self.nonlinear_solver_statistics.num_contact_states = (
-                num_contact_states.tolist()
-            )
-            self.nonlinear_solver_statistics.contact_state_changes = changes.tolist()
-            self.nonlinear_solver_statistics.total_contact_state_changes = total_changes
-            if total_changes > 0:
-                self.nonlinear_solver_statistics.last_update_contact_states = (
-                    self.nonlinear_solver_statistics.num_iteration
-                )
-            if hasattr(self, "update_num_contact_states_changes"):
-                self.update_num_contact_states_changes()
-
-        # Check for cycling based on closedness of states and variables
-        rtol = 1e-2
-        for i in range(len(self.cached_contact_states) - 1, 1, -1):
-            if self.states != [] and (
-                np.allclose(
-                    np.concatenate(self.states),
-                    np.concatenate(self.cached_contact_states[i]),
-                )
-                and np.allclose(
-                    np.concatenate(vars),
-                    np.concatenate(self.cached_contact_vars[i]),
-                    rtol=rtol,
-                )
-                and np.allclose(
-                    np.concatenate(self.cached_contact_states[-1]),
-                    np.concatenate(self.cached_contact_states[i - 1]),
-                )
-                and np.allclose(
-                    np.concatenate(self.cached_contact_vars[-1]),
-                    np.concatenate(self.cached_contact_vars[i - 1]),
-                    rtol=rtol,
-                )
-            ):
-                cycling = True
-                cycling_window = len(self.cached_contact_states) - i
-
-                logger.info(f"Cycling detected with window {cycling_window}.")
-
-            if cycling:
-                break
-        self.cached_contact_states.append(self.states)
-        self.cached_contact_vars.append(vars)
-        self.cached_contact_normal_residuals.append(normal_residuals)
-        self.cached_contact_tangential_residuals.append(tangential_residuals)
-
-        # Clean up cache
-        if len(self.cached_contact_states) > 10:
-            self.cached_contact_states.pop(0)
-            self.cached_contact_vars.pop(0)
-            self.cached_contact_normal_residuals.pop(0)
-            self.cached_contact_tangential_residuals.pop(0)
-
-        # Store cycling window
-        if cycling_window > 0:
-            self.cycling_window = cycling_window
-        else:
-            self.cycling_window = 0
-
-        # Store stagnating status
-        self.stagnating_states = stagnating_states
-
-        # Monitor as part of nonlinear solver statistics
-        self.nonlinear_solver_statistics.cycling_window = self.cycling_window
-        self.nonlinear_solver_statistics.stagnating_states = self.stagnating_states
-
-    def save_data_iteration(self):
-        """Export current solution to vtu files.
-
-        This method is typically called by after_nonlinear_iteration.
-
-        Having a separate exporter for iterations avoids distinguishing
-        between iterations and time steps in the regular exporter's
-        history (used for export_pvd).
-
-        """
-        # To make sure the nonlinear iteration index does not interfere with
-        # the time part, we multiply the latter by the next power of ten above
-        # the maximum number of nonlinear iterations. Default value set to 10
-        # in accordance with the default value used in NewtonSolver
-        n = self.params.get("max_iterations", 10)
-        r = 10
-        while r <= n:
-            r *= 10
-        self.iteration_exporter.write_vtu(
-            self.data_to_export_iteration(),
-            time_dependent=True,
-            time_step=self.nonlinear_solver_statistics.num_iteration
-            + r * self.time_manager.time_index,
-        )
-
-    def before_nonlinear_loop(self):
-        self.previous_states = self.compute_fracture_states(split_output=True)
-        super().before_nonlinear_loop()
-
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
-        """Integrate iteration export into simulation workflow.
-
-        Order of operations is important, super call distributes the solution
-        to iterate subdictionary.
-
-        """
-        super().after_nonlinear_iteration(solution_vector)
-        self.save_data_iteration()
-        self.iteration_exporter.write_pvd()
-        self.check_cycling()
-        # print()  # force progressbar to output.
-
-    def after_nonlinear_convergence(self):
-        super().after_nonlinear_convergence()
-        self.reset_cycling_analysis()
