@@ -13,6 +13,105 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class AdvancedSolverStatistics(pp.SolverStatistics):
+    cache_num_iteration: list[int] = field(default_factory=list)
+    """Cached number of non-linear iterations performed until current time step."""
+    cache_nonlinear_increment_norms: list[list[float]] = field(default_factory=list)
+    """Cached list of increment magnitudes for each non-linear iteration."""
+    cache_residual_norms: list[list[float]] = field(default_factory=list)
+    """Cached list of residual for each non-linear iteration."""
+
+    time_index: int = 0
+    contact_state_changes: list[list[int]] = field(default_factory=list)
+    total_contact_state_changes: int = 0
+    total_contact_state_changes_in_time: int = 0
+    last_update_contact_states: int = 0
+    num_contact_states: list[int] = field(default_factory=list)
+    cache_contact_state_changes: list[list[list[int]]] = field(default_factory=list)
+    cache_total_contact_state_changes: list[int] = field(default_factory=list)
+    cache_num_contact_states: list[int] = field(default_factory=list)
+    num_cells: list[int] = field(default_factory=list)
+    data: dict = field(default_factory=dict)
+    stagnating_states: bool = False
+    cycling_window: int = 0
+    status: str = ""
+
+    def cache(self) -> None:
+        """Cache the statistics object."""
+        self.cache_num_iteration.append(self.num_iteration)
+        self.cache_nonlinear_increment_norms.append(self.nonlinear_increment_norms)
+        self.cache_residual_norms.append(self.residual_norms)
+
+    def reset(self):
+        super().reset()
+        self.contact_state_changes = np.zeros((3, 3), dtype=int).tolist()
+        self.total_contact_state_changes = 0
+        self.total_contact_state_changes_in_time = 0
+        self.last_update_contact_states = 0
+        self.num_contact_states = [0, 0, 0]
+
+        self.cache_contact_state_changes = []
+        self.cache_total_contact_state_changes = []
+        self.cache_num_contact_states = []
+
+        self.num_cells = []
+
+        self.status = ""
+
+    def log_error(self, nonlinear_increment_norm, residual_norm, **kwargs):
+        super().log_error(nonlinear_increment_norm, residual_norm, **kwargs)
+
+    def log_performance_data(self, **kwargs):
+        """Collect contact mechanics related performance data."""
+
+        self.cache_contact_state_changes.append(self.contact_state_changes)
+        self.cache_total_contact_state_changes.append(self.total_contact_state_changes)
+        self.cache_num_contact_states.append(self.num_contact_states)
+
+        # Store grid stats
+        max_dim = -1
+        for sd in kwargs.get("subdomains"):
+            max_dim = max(max_dim, sd.dim)
+        self.num_cells = [0] * (max_dim + 1)
+        for sd in kwargs.get("subdomains"):
+            self.num_cells[sd.dim] += sd.num_cells
+
+        # Store time step
+        assert "time_index" in kwargs
+        self.time_index = kwargs.get("time_index")
+
+    def update_data(self) -> None:
+        """Update the data dictionary for the current time index."""
+        self.data["geometry"] = {
+            "num_cells": copy(self.num_cells),
+        }
+        self.data[self.time_index] = {
+            "status": self.status,
+            "num_iteration": self.num_iteration,
+            "nonlinear_increment_norms": copy(self.nonlinear_increment_norms),
+            "residual_norms": copy(self.residual_norms),
+            "contact_state_changes": copy(self.cache_contact_state_changes),
+            "total_contact_state_changes": copy(self.cache_total_contact_state_changes),
+            "total_contact_state_changes_in_time": self.total_contact_state_changes_in_time,
+            "last_update_contact_states": self.last_update_contact_states,
+            "num_contact_states": copy(self.cache_num_contact_states),
+            "stagnating_states": self.stagnating_states,
+            "cycling_window": self.cycling_window,
+        }
+
+    def save(self):
+        """Save the statistics object to file."""
+        self.update_data()
+        # Save to file
+        if self.path is not None:
+            with self.path.open("w") as file:
+                json.dump(self.data, file, indent=4)
+
+
+### REST OBSOLETE - TO BE REMOVED LATER ###
+
+
 class ASCIExport:
     def initialize_data_saving(self) -> None:
         """Initialize data saving.
@@ -570,99 +669,3 @@ class LogPerformanceDataVectorial(LogPerformanceData):
                 print("Converged with residuals.")
 
         return converged, diverged
-
-
-@dataclass
-class AdvancedSolverStatistics(pp.SolverStatistics):
-    cache_num_iteration: list[int] = field(default_factory=list)
-    """Cached number of non-linear iterations performed until current time step."""
-    cache_nonlinear_increment_norms: list[list[float]] = field(default_factory=list)
-    """Cached list of increment magnitudes for each non-linear iteration."""
-    cache_residual_norms: list[list[float]] = field(default_factory=list)
-    """Cached list of residual for each non-linear iteration."""
-
-    time_index: int = 0
-    contact_state_changes: list[list[int]] = field(default_factory=list)
-    total_contact_state_changes: int = 0
-    total_contact_state_changes_in_time: int = 0
-    last_update_contact_states: int = 0
-    num_contact_states: list[int] = field(default_factory=list)
-    cache_contact_state_changes: list[list[list[int]]] = field(default_factory=list)
-    cache_total_contact_state_changes: list[int] = field(default_factory=list)
-    cache_num_contact_states: list[int] = field(default_factory=list)
-    num_cells: list[int] = field(default_factory=list)
-    data: dict = field(default_factory=dict)
-    stagnating_states: bool = False
-    cycling_window: int = 0
-    status: str = ""
-
-    def cache(self) -> None:
-        """Cache the statistics object."""
-        self.cache_num_iteration.append(self.num_iteration)
-        self.cache_nonlinear_increment_norms.append(self.nonlinear_increment_norms)
-        self.cache_residual_norms.append(self.residual_norms)
-
-    def reset(self):
-        super().reset()
-        self.contact_state_changes = np.zeros((3, 3), dtype=int).tolist()
-        self.total_contact_state_changes = 0
-        self.total_contact_state_changes_in_time = 0
-        self.last_update_contact_states = 0
-        self.num_contact_states = [0, 0, 0]
-
-        self.cache_contact_state_changes = []
-        self.cache_total_contact_state_changes = []
-        self.cache_num_contact_states = []
-
-        self.num_cells = []
-
-        self.status = ""
-
-    def log_error(self, nonlinear_increment_norm, residual_norm, **kwargs):
-        super().log_error(nonlinear_increment_norm, residual_norm, **kwargs)
-
-    def log_performance_data(self, **kwargs):
-        """Collect contact mechanics related performance data."""
-
-        self.cache_contact_state_changes.append(self.contact_state_changes)
-        self.cache_total_contact_state_changes.append(self.total_contact_state_changes)
-        self.cache_num_contact_states.append(self.num_contact_states)
-
-        # Store grid stats
-        max_dim = -1
-        for sd in kwargs.get("subdomains"):
-            max_dim = max(max_dim, sd.dim)
-        self.num_cells = [0] * (max_dim + 1)
-        for sd in kwargs.get("subdomains"):
-            self.num_cells[sd.dim] += sd.num_cells
-
-        # Store time step
-        assert "time_index" in kwargs
-        self.time_index = kwargs.get("time_index")
-
-    def update_data(self) -> None:
-        """Update the data dictionary for the current time index."""
-        self.data["geometry"] = {
-            "num_cells": copy(self.num_cells),
-        }
-        self.data[self.time_index] = {
-            "status": self.status,
-            "num_iteration": self.num_iteration,
-            "nonlinear_increment_norms": copy(self.nonlinear_increment_norms),
-            "residual_norms": copy(self.residual_norms),
-            "contact_state_changes": copy(self.cache_contact_state_changes),
-            "total_contact_state_changes": copy(self.cache_total_contact_state_changes),
-            "total_contact_state_changes_in_time": self.total_contact_state_changes_in_time,
-            "last_update_contact_states": self.last_update_contact_states,
-            "num_contact_states": copy(self.cache_num_contact_states),
-            "stagnating_states": self.stagnating_states,
-            "cycling_window": self.cycling_window,
-        }
-
-    def save(self):
-        """Save the statistics object to file."""
-        self.update_data()
-        # Save to file
-        if self.path is not None:
-            with self.path.open("w") as file:
-                json.dump(self.data, file, indent=4)
