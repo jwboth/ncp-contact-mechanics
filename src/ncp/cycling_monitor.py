@@ -1,12 +1,13 @@
 import logging
 import numpy as np
-from typing import List, Optional
 import porepy as pp
+from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
+from abc import abstractmethod
 
 logger = logging.getLogger(__name__)
 
 
-class CyclingMonitor:
+class CyclingCriterion:
     """Implements a check for cycling."""
 
     def reset_cycling_analysis(self):
@@ -15,12 +16,12 @@ class CyclingMonitor:
         if hasattr(self, "cached_objectives"):
             del self.cached_objectives
 
-    def initialize_cache(self):
+    def initialize_cycling_cache(self):
         """Initialize cache."""
         if not hasattr(self, "cached_objectives"):
             self.cached_objectives = {}
 
-    def clean_cache(self):
+    def clean_cycling_cache(self):
         """Make sure the cache does not grow too large."""
         for outer_key in self.cached_objectives:
             for inner_key in self.cached_objectives[outer_key]:
@@ -28,62 +29,20 @@ class CyclingMonitor:
                 while len(self.cached_objectives[outer_key][inner_key]) > 10:
                     self.cached_objectives[outer_key][inner_key].pop(0)
 
-    def update_cache(self, objectives: dict):
+    def update_cycling_cache(self, objectives: dict):
         for key_outer in objectives:
             for key_inner in objectives[key_outer]:
                 self.cached_objectives[key_outer][key_inner].append(
                     objectives[key_outer][key_inner]
                 )
 
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
-        """Integrate iteration export into simulation workflow.
 
-        Order of operations is important, super call distributes the solution
-        to iterate subdictionary.
-
-        """
-        super().after_nonlinear_iteration(solution_vector)
-        self.check_cycling()
-
-    def after_nonlinear_convergence(self):
-        super().after_nonlinear_convergence()
-        self.reset_cycling_analysis()
-
-
-class ContactMechanicsCyclingMonitor(CyclingMonitor):
+class ContactMechanicsCyclingCriterion(CyclingCriterion):
     """Implements a check for cycling in contact mechanics."""
 
-    nonlinear_solver_statistics: pp.SolverStatistics
-    """Solver statistics to monitor cycling."""
-
-    equation_system: pp.ad.EquationSystem
-    """Equation system to evaluate objectives."""
-
-    mdg: pp.MixedDimensionalGrid
-    """The mixed-dimensional grid."""
-
-    nd: int
-    """Number of spatial dimensions."""
-
-    contact_traction: pp.ad.Operator
-    """Contact traction operator."""
-
-    displacement_jump: pp.ad.Operator
-    """Displacement jump operator."""
-
-    # def reset(self):
-    #    """Clean up all cached data for cycling analysis."""
-
-    #    super().reset()
-
-    #    if "contact_states" in self.cached_objectives:
-    #        del self.cached_objectives["contact_states"]
-    #    if "contact_variables" in self.cached_objectives:
-    #        del self.cached_objectives["contact_variables"]
-
-    def initialize_cache(self):
+    def initialize_cycling_cache(self):
         """Initialize cache."""
-        super().initialize_cache()
+        super().initialize_cycling_cache()
 
         if "discrete" not in self.cached_objectives:
             self.cached_objectives["discrete"] = {}
@@ -96,16 +55,16 @@ class ContactMechanicsCyclingMonitor(CyclingMonitor):
         if "displacement_jump" not in self.cached_objectives["continuous"]:
             self.cached_objectives["continuous"]["displacement_jump"] = []
 
-    def fetch_objectives(self) -> dict[str, dict[str, np.ndarray]]:
+    def fetch_cycling_objectives(self, model) -> dict[str, dict[str, np.ndarray]]:
         """Auxiliary function to fetch relevant objectives."""
-        contact_states = self.compute_fracture_states()
+        contact_states = model.compute_fracture_states()
 
-        subdomains = self.mdg.subdomains(dim=self.nd - 1)
-        contact_traction = self.equation_system.evaluate(
-            self.contact_traction(subdomains)
+        subdomains = model.mdg.subdomains(dim=model.nd - 1)
+        contact_traction = model.equation_system.evaluate(
+            model.contact_traction(subdomains)
         )
-        displacement_jump = self.equation_system.evaluate(
-            self.displacement_jump(subdomains)
+        displacement_jump = model.equation_system.evaluate(
+            model.displacement_jump(subdomains)
         )
         return {
             "discrete": {
@@ -117,16 +76,16 @@ class ContactMechanicsCyclingMonitor(CyclingMonitor):
             },
         }
 
-    def check_cycling(self):
+    def check_cycling(self, model):
         """Check for cycling in contact states."""
 
         # Initialize state.
-        self.initialize_cache()
+        self.initialize_cycling_cache()
 
         # Fetch objectives.
-        objectives = self.fetch_objectives()
+        objectives = self.fetch_cycling_objectives(model)
         if not hasattr(self, "previous_objectives"):
-            self.previous_objectives = self.fetch_objectives()
+            self.previous_objectives = self.fetch_cycling_objectives(model)
 
         # Monitor some infos.
         _ = self.monitor_discrete_changes(objectives)
@@ -184,16 +143,18 @@ class ContactMechanicsCyclingMonitor(CyclingMonitor):
         # Conclude.
         is_cycling = cycling_window > 0
 
-        # Monitor.
-        self.nonlinear_solver_statistics.cycling_window = cycling_window
+        # # Monitor.
+        # TODO pass info somehow.
+        # self.nonlinear_solver_statistics.cycling_window = cycling_window
 
         # Update cache
-        self.update_cache(objectives)
+        self.update_cycling_cache(objectives)
 
         # Clean up cache
-        self.clean_cache()
+        self.clean_cycling_cache()
 
-        return is_cycling
+        # TODO pass info
+        return is_cycling  # , cycling_window
 
     def monitor_discrete_changes(self, objectives: dict):
         """Monitor objectives."""
@@ -206,7 +167,7 @@ class ContactMechanicsCyclingMonitor(CyclingMonitor):
             )
             for i in range(3)
         ]
-        self.nonlinear_solver_statistics.num_contact_states = num_contact_states
+        # self.nonlinear_solver_statistics.num_contact_states = num_contact_states
         logger.info(f"Number of contact states: {num_contact_states}")
 
         # Determine change in discrete objectives in time.
@@ -221,9 +182,9 @@ class ContactMechanicsCyclingMonitor(CyclingMonitor):
             )
             for key in objectives["discrete"]
         }
-        self.nonlinear_solver_statistics.total_contact_state_changes_in_time = (
-            total_discrete_changes_in_time["contact_states"]
-        )
+        # self.nonlinear_solver_statistics.total_contact_state_changes_in_time = (
+        #    total_discrete_changes_in_time["contact_states"]
+        # )
         logger.info(f"Total discrete changes in time: {total_discrete_changes_in_time}")
 
         # Determine total changes in iterations.
@@ -240,9 +201,9 @@ class ContactMechanicsCyclingMonitor(CyclingMonitor):
             else 0
             for key in objectives["discrete"]
         }
-        self.nonlinear_solver_statistics.total_contact_state_changes = (
-            total_discrete_changes["contact_states"]
-        )
+        # self.nonlinear_solver_statistics.total_contact_state_changes = (
+        #     total_discrete_changes["contact_states"]
+        # )
         logger.info(f"Total discrete changes: {total_discrete_changes}")
 
         # Determine detailed contact state changes
@@ -266,7 +227,34 @@ class ContactMechanicsCyclingMonitor(CyclingMonitor):
         else:
             for i in range(3):
                 discrete_changes[i, i] = num_contact_states[i]
-        self.nonlinear_solver_statistics.contact_state_changes = discrete_changes
+        # self.nonlinear_solver_statistics.contact_state_changes = discrete_changes
         logger.info(f"Changes in states: \n{discrete_changes}")
 
         return total_discrete_changes
+
+
+class NewtonWithCyclingCheck(pp.NewtonSolver):
+    @abstractmethod
+    def reset_cycling_analysis(self):
+        pass
+
+    @abstractmethod
+    def check_cycling(self, model) -> bool:
+        pass
+
+    def check_convergence(self, model, nonlinear_increment):
+        # Standard convergence check
+        convergence_status, nonlinear_increment_norm, residual_norm = (
+            super().check_convergence(model, nonlinear_increment)
+        )
+
+        # Cycling check
+        is_cycling = self.check_cycling(model)
+        if is_cycling:
+            convergence_status = ConvergenceStatus.CYCLING
+
+        return convergence_status, nonlinear_increment_norm, residual_norm
+
+    def solve(self, model) -> ConvergenceStatus:
+        self.reset_cycling_analysis()
+        return super().solve(model)
