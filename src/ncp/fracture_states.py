@@ -3,7 +3,7 @@
 from functools import partial
 
 import numpy as np
-from icecream import ic
+import logging
 
 import porepy as pp
 from typing import cast
@@ -12,82 +12,61 @@ from typing import cast
 class FractureStates:
     """Compute states of each fracture cell using the cumulative tangential"""
 
-    def compute_fracture_states(self, split_output: bool = False, trial=False):
+    def compute_fracture_states(self, concatenate: bool = True):
         """
         Compute states of each fracture cell, based on the textbook criteria.
-        Returns a list where: Open=0, Sticking=1, Gliding=2
+
+        Value convention:
+        - Stick=0
+        - Slip=1
+        - Open=2
 
         Args:
-            split_output (bool, optional): Whether to split the output into subdomain-corresponding vectors. Defaults to False.
-            tol (float, optional): Tolerance for the yield criterion. Defaults to 1e-11.
-
-        NOTE: Aim at using the same tolerance here as in the model.
+            concatenate (bool, optional): Whether to concatenate the output into a
+            single vector. Defaults to True.
 
         """
-        # Active sets
+        # Preparations.
         states = []
         subdomains = self.mdg.subdomains(dim=self.nd - 1)
 
-        # Compute ingredients characterizing the normal contact state
-        nd_vec_to_normal = self.normal_component(subdomains)
-        nd_vec_to_tangential = self.tangential_component(subdomains)
-        t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
-        u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
-        c_n = self.contact_mechanics_numerical_constant(subdomains)
-        gap = c_n * (u_n - self.fracture_gap(subdomains))
-
-        # Compute the friction bound and the yield criterion
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-        b = self.friction_bound(subdomains)
-        t_t = self.tangential_component(subdomains) @ self.contact_traction(subdomains)
-        yield_criterion = b - f_norm(t_t)
-        b_eval = b.value(self.equation_system)
-        yield_criterion_eval = yield_criterion.value(self.equation_system)
-        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
-
-        # Combine the above into expressions that enter the equation
-        ut_val = np.linalg.norm(
-            u_t.value(self.equation_system).reshape((self.nd - 1, -1), order="F"),
-            axis=0,
+        # Compute normal traction to decide: open vs closed.
+        t_n: pp.ad.Operator = self.normal_component(subdomains) @ self.contact_traction(
+            subdomains
         )
+        t_n_eval = self.equation_system.evaluate(t_n)
 
+        # Compute the yield criterion to decide: stick vs slip.
+        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        t_t = self.tangential_component(subdomains) @ self.contact_traction(subdomains)
+        yield_criterion = self.friction_bound(subdomains) - f_norm(t_t)
+        yield_criterion_eval = self.equation_system.evaluate(yield_criterion)
+
+        # Use consistent tolerance as in the equations to discuss boundary cases.
         tol = self.numerical.open_state_tolerance
 
-        # Determine the state of each fracture cell
+        # Determine the state of each fracture cell.
         conversion = {
-            "open": 2,
             "stick": 0,
             "slip": 1,
+            "open": 2,
             "unknown": -1,
         }
-        if trial:
-            opening_ind = -t_n.value(self.equation_system) - gap.value(
-                self.equation_system
-            )
-            for op, sl in zip(opening_ind, ut_val):
-                if op <= tol:
-                    states.append(conversion["open"])
-                elif sl > tol:
-                    states.append(conversion["slip"])
-                else:
-                    states.append(conversion["stick"])
-        else:
-            failure = False
-            for b_val, yc_val in zip(b_eval, yield_criterion_eval):
-                if b_val <= tol:
-                    states.append(conversion["open"])
-                elif yc_val > tol:
-                    states.append(conversion["stick"])
-                elif yc_val <= tol:
-                    states.append(conversion["slip"])
-                else:
-                    states.append(conversion["unknown"])
-                    if not failure:
-                        print("Should not get here.", b_val, yc_val, tol)
-                        failure = True
+        for tn_val, yc_val in zip(t_n_eval, yield_criterion_eval):
+            if tn_val >= -tol:
+                states.append(conversion["open"])
+            elif yc_val > tol:
+                states.append(conversion["stick"])
+            elif yc_val <= tol:
+                states.append(conversion["slip"])
+            else:
+                states.append(conversion["unknown"])
+                logging.info("Should not get here.", tn_val, yc_val, tol)
 
-        # Split combined states vector into subdomain-corresponding vectors
-        if split_output:
+        # Return in requested format
+        if concatenate:
+            return np.array(states)
+        else:
             split_states = []
             num_cells = []
             for sd in subdomains:
@@ -97,43 +76,6 @@ class FractureStates:
                 )
                 num_cells.append(sd.num_cells)
             return split_states
-        else:
-            return states
-
-    def fetch_fracture_vars(self):
-        # Manage the states
-        traction_states = []
-        displacement_jump_states = []
-        subdomains = self.mdg.subdomains(dim=self.nd - 1)
-
-        # Variables
-        traction_states.append(
-            self.contact_traction(subdomains).value(self.equation_system)
-        )
-        displacement_jump_states.append(
-            self.displacement_jump(subdomains).value(self.equation_system)
-        )
-
-        return traction_states, displacement_jump_states
-
-    def fetch_fracture_residuals(self):
-        # Manage the residuals
-        normal_residuals = []
-        tangential_residuals = []
-        subdomains = self.mdg.subdomains(dim=self.nd - 1)
-
-        normal_residuals.append(
-            pp.momentum_balance.MomentumBalance.normal_fracture_deformation_equation(
-                self, subdomains
-            ).value(self.equation_system)
-        )
-        tangential_residuals.append(
-            pp.momentum_balance.MomentumBalance.tangential_fracture_deformation_equation(
-                self, subdomains
-            ).value(self.equation_system)
-        )
-
-        return normal_residuals, tangential_residuals
 
 
 class NCPContactIndicators(pp.models.solution_strategy.ContactIndicators):
@@ -150,11 +92,9 @@ class NCPContactIndicators(pp.models.solution_strategy.ContactIndicators):
 
         # Functions
         f_heaviside = pp.ad.Function(partial(pp.ad.heaviside, 0), "heaviside_function")
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
         # Basis vector combinations
-        num_cells = sum([sd.num_cells for sd in subdomains])
         # Mapping from a full vector to the tangential component
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
@@ -170,7 +110,7 @@ class NCPContactIndicators(pp.models.solution_strategy.ContactIndicators):
         # The yield criterion
         yield_criterion = self.yield_criterion(subdomains)
         # Stick condition
-        scaled_orthogonality = self.orthogonality(subdomains, True)
+        orthogonality = self.orthogonality(subdomains)
         c_num_to_one = self.contact_mechanics_numerical_constant_t(subdomains)
         scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
         u_t_increment_scaled_to_one = (
@@ -178,7 +118,7 @@ class NCPContactIndicators(pp.models.solution_strategy.ContactIndicators):
         ) * u_t_increment
         u_t_increment_scaled_to_one.set_name("u_t_increment_scaled_to_one")
         stick_condition = (
-            scaled_orthogonality - f_norm(u_t_increment_scaled_to_one) * friction_bound
+            orthogonality - f_norm(u_t_increment_scaled_to_one) * friction_bound
         )
 
         h_oi = f_heaviside(self.opening_indicator(subdomains))
