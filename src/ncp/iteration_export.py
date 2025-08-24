@@ -84,11 +84,11 @@ class IterationExporting:
         for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
             # Append aperture
             aperture = self.aperture([sd])
-            data.append((sd, "aperture", aperture.value(self.equation_system)))
+            data.append((sd, "aperture", self.equation_system.evaluate(aperture)))
 
             # Append fracture gap
             gap = self.fracture_gap([sd])
-            data.append((sd, "gap", gap.value(self.equation_system)))
+            data.append((sd, "gap", self.equation_system.evaluate(gap)))
 
             # Append scaled contact traction
             scaled_contact_traction = self.characteristic_contact_traction(
@@ -105,7 +105,7 @@ class IterationExporting:
                     sd,
                     "contact_traction",
                     self.units.convert_units(1, "Pa^-1")
-                    * scaled_contact_traction.value(self.equation_system),
+                    * self.equation_system.evaluate(scaled_contact_traction),
                 )
             )
             data.append(
@@ -113,7 +113,7 @@ class IterationExporting:
                     sd,
                     "contact_traction_n",
                     self.units.convert_units(1, "Pa^-1")
-                    * scaled_contact_traction_n.value(self.equation_system),
+                    * self.equation_system.evaluate(scaled_contact_traction_n),
                 )
             )
             data.append(
@@ -121,7 +121,7 @@ class IterationExporting:
                     sd,
                     "contact_traction_t",
                     self.units.convert_units(1, "Pa^-1")
-                    * scaled_contact_traction_t.value(self.equation_system),
+                    * self.equation_system.evaluate(scaled_contact_traction_t),
                 )
             )
 
@@ -138,7 +138,7 @@ class IterationExporting:
                 (
                     sd,
                     "slip_tendency",
-                    np.absolute(slip_tendency.value(self.equation_system)),
+                    np.absolute(self.equation_system.evaluate(slip_tendency)),
                 )
             )
 
@@ -152,14 +152,14 @@ class IterationExporting:
                 (
                     sd,
                     "tangential_plastic_jump",
-                    tangential_plastic_jump.value(self.equation_system),
+                    self.equation_system.evaluate(tangential_plastic_jump),
                 )
             )
             data.append(
                 (
                     sd,
                     "tangential_plastic_jump_increment",
-                    tangential_plastic_jump_increment.value(self.equation_system),
+                    self.equation_system.evaluate(tangential_plastic_jump_increment),
                 )
             )
 
@@ -170,7 +170,7 @@ class IterationExporting:
                 (
                     sd,
                     "opening",
-                    opening.value(self.equation_system),
+                    self.equation_system.evaluate(opening),
                 )
             )
 
@@ -190,21 +190,21 @@ class IterationExporting:
                     (
                         sd,
                         "deviation_displacement",
-                        displacement_deviation.value(self.equation_system),
+                        self.equation_system.evaluate(displacement_deviation),
                     )
                 )
                 data.append(
                     (
                         sd,
                         "reference_displacement",
-                        reference_displacement.value(self.equation_system),
+                        self.equation_system.evaluate(reference_displacement),
                     )
                 )
                 data.append(
                     (
                         sd,
                         "displacement_time_increment",
-                        displacement_time_increment.value(self.equation_system),
+                        self.equation_system.evaluate(displacement_time_increment),
                     )
                 )
 
@@ -220,7 +220,7 @@ class IterationExporting:
                         sd,
                         "deviation_pressure",
                         self.units.convert_units(
-                            pressure_deviation.value(self.equation_system),
+                            self.equation_system.evaluate(pressure_deviation),
                             "Pa",
                         ),
                     )
@@ -230,7 +230,7 @@ class IterationExporting:
                         sd,
                         "reference_pressure",
                         self.units.convert_units(
-                            reference_pressure.value(self.equation_system),
+                            self.equation_system.evaluate(reference_pressure),
                             "Pa",
                         ),
                     )
@@ -253,22 +253,22 @@ class IterationExporting:
                     (
                         intf,
                         "deviation_interface_displacement",
-                        interface_displacement_deviation.value(self.equation_system),
+                        self.equation_system.evaluate(interface_displacement_deviation),
                     )
                 )
                 data.append(
                     (
                         intf,
                         "reference_interface_displacement",
-                        reference_interface_displacement.value(self.equation_system),
+                        self.equation_system.evaluate(reference_interface_displacement),
                     )
                 )
                 data.append(
                     (
                         intf,
                         "interface_displacement_time_increment",
-                        interface_displacement_time_increment.value(
-                            self.equation_system
+                        self.equation_system.evaluate(
+                            interface_displacement_time_increment
                         ),
                     )
                 )
@@ -287,7 +287,7 @@ class IterationExporting:
         for sd in self.mdg.subdomains():
             try:
                 porosity = self.porosity([sd])
-                data.append((sd, "porosity", porosity.value(self.equation_system)))
+                data.append((sd, "porosity", self.equation_system.evaluate(porosity)))
             except Exception:
                 not_exported.append("porosity")
 
@@ -366,7 +366,7 @@ class IterationExporting:
                 (
                     sd,
                     "contact_traction",
-                    scaled_contact_traction.value(self.equation_system),
+                    self.equation_system.evaluate(scaled_contact_traction),
                 )
             )
             data.append(
@@ -374,7 +374,7 @@ class IterationExporting:
                     sd,
                     "contact_traction_n",
                     self.units.convert_units(1, "Pa^-1")
-                    * t_n.value(self.equation_system),
+                    * self.equation_system.evaluate(t_n),
                 )
             )
             data.append(
@@ -382,7 +382,7 @@ class IterationExporting:
                     sd,
                     "contact_traction_t",
                     self.units.convert_units(1, "Pa^-1")
-                    * t_t.value(self.equation_system),
+                    * self.equation_system.evaluate(t_t),
                 )
             )
 
@@ -396,7 +396,7 @@ class IterationExporting:
                 (
                     sd,
                     "slip_tendency",
-                    slip_tendency.value(self.equation_system),
+                    self.equation_system.evaluate(slip_tendency),
                 )
             )
 
@@ -408,36 +408,38 @@ class IterationExporting:
                 (
                     sd,
                     "u_n",
-                    u_n.value(self.equation_system),
+                    self.equation_system.evaluate(u_n),
                 )
             )
             data.append(
                 (
                     sd,
                     "u_t",
-                    u_t.value(self.equation_system),
+                    self.equation_system.evaluate(u_t),
                 )
             )
             data.append(
                 (
                     sd,
                     "u_t_increment",
-                    u_t_increment.value(self.equation_system),
+                    self.equation_system.evaluate(u_t_increment),
                 )
             )
 
             # Append aperture
             aperture = self.aperture([sd])
-            data.append((sd, "aperture", aperture.value(self.equation_system)))
+            data.append((sd, "aperture", self.equation_system.evaluate(aperture)))
 
             # Append fracture gap
             fracture_gap = self.fracture_gap([sd])
-            data.append((sd, "fracture_gap", fracture_gap.value(self.equation_system)))
+            data.append(
+                (sd, "fracture_gap", self.equation_system.evaluate(fracture_gap))
+            )
 
             # Append permeability
             try:
                 perm = self.permeability([sd])
-                data.append((sd, "perm", perm.value(self.equation_system)))
+                data.append((sd, "perm", self.equation_system.evaluate(perm)))
             except Exception:
                 not_exported.append("permeability")
 
@@ -445,7 +447,11 @@ class IterationExporting:
             try:
                 yield_criterion = self.yield_criterion([sd])
                 data.append(
-                    (sd, "yield_criterion", yield_criterion.value(self.equation_system))
+                    (
+                        sd,
+                        "yield_criterion",
+                        self.equation_system.evaluate(yield_criterion),
+                    )
                 )
             except Exception:
                 not_exported.append("yield criterion")
@@ -457,7 +463,7 @@ class IterationExporting:
                     (
                         sd,
                         "orthogonality",
-                        orthogonality.value(self.equation_system),
+                        self.equation_system.evaluate(orthogonality),
                     )
                 )
             except Exception:
@@ -466,7 +472,7 @@ class IterationExporting:
             # Append alignment
             try:
                 alignment = self.alignment([sd])
-                data.append((sd, "alignment", alignment.value(self.equation_system)))
+                data.append((sd, "alignment", self.equation_system.evaluate(alignment)))
             except Exception:
                 not_exported.append("alignment")
 
@@ -477,7 +483,7 @@ class IterationExporting:
                     (
                         sd,
                         "colinearity_condition",
-                        colinearity_condition.value(self.equation_system),
+                        self.equation_system.evaluate(colinearity_condition),
                     )
                 )
             except Exception:
@@ -501,10 +507,10 @@ class IterationExporting:
                     (
                         sd,
                         "characteristic_origin",
-                        characteristic_origin.value(self.equation_system),
+                        self.equation_system.evaluate(characteristic_origin),
                     )
                 )
-            except:
+            except Exception:
                 not_exported.append("characteristic_origin")
 
         # Add contact states
@@ -512,7 +518,7 @@ class IterationExporting:
             states = self.compute_fracture_states(concatenate=False)
             for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
                 data.append((sd, "contact states", states[i]))
-        except:
+        except Exception:
             not_exported.append("contact states")
 
         not_exported = list(set(not_exported))
