@@ -67,7 +67,9 @@ class IterationExporting:
 
     def data_to_export(self):
         """Add data to regular data export:
-
+        * fracture aperture
+        * fracture gap
+        * scaled contact traction
         * contact states (physical)
         * contact states (connected to augemented Lagrangian idea)
 
@@ -80,6 +82,15 @@ class IterationExporting:
         # Add data to the fracture
         not_exported = []
         for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
+            # Append aperture
+            aperture = self.aperture([sd])
+            data.append((sd, "aperture", aperture.value(self.equation_system)))
+
+            # Append fracture gap
+            gap = self.fracture_gap([sd])
+            data.append((sd, "gap", gap.value(self.equation_system)))
+
+            # Append scaled contact traction
             scaled_contact_traction = self.characteristic_contact_traction(
                 [sd]
             ) * self.contact_traction([sd])
@@ -89,11 +100,6 @@ class IterationExporting:
             scaled_contact_traction_t = (
                 self.tangential_component([sd]) @ scaled_contact_traction
             )
-            f_norm = pp.ad.Function(
-                partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
-            )
-            scaled_contact_traction_t_norm = f_norm(scaled_contact_traction_t)
-            slip_tendency = scaled_contact_traction_t_norm / scaled_contact_traction_n
             data.append(
                 (
                     sd,
@@ -118,6 +124,16 @@ class IterationExporting:
                     * scaled_contact_traction_t.value(self.equation_system),
                 )
             )
+
+            # Append slip tendency
+            f_norm = pp.ad.Function(
+                partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
+            )
+            mu = self.friction_coefficient([sd])
+            scaled_contact_traction_t_norm = f_norm(scaled_contact_traction_t)
+            slip_tendency = scaled_contact_traction_t_norm / (
+                -scaled_contact_traction_n * mu
+            )
             data.append(
                 (
                     sd,
@@ -126,10 +142,39 @@ class IterationExporting:
                 )
             )
 
-        # Deviation from reference state:
-        # * displacement
-        # * pressure
-        # * interface displacement
+            # Append plastic displacement jump
+            plastic_jump = self.plastic_displacement_jump([sd])
+            tangential_plastic_jump = self.tangential_component([sd]) @ plastic_jump
+            tangential_plastic_jump_increment = pp.ad.time_increment(
+                tangential_plastic_jump
+            )
+            data.append(
+                (
+                    sd,
+                    "tangential_plastic_jump",
+                    tangential_plastic_jump.value(self.equation_system),
+                )
+            )
+            data.append(
+                (
+                    sd,
+                    "tangential_plastic_jump_increment",
+                    tangential_plastic_jump_increment.value(self.equation_system),
+                )
+            )
+
+            # Append effective fracture opening
+            jump = self.displacement_jump([sd])
+            opening = self.normal_component([sd]) @ jump - self.fracture_gap([sd])
+            data.append(
+                (
+                    sd,
+                    "opening",
+                    opening.value(self.equation_system),
+                )
+            )
+
+        # Deviation from reference state (displacement).
         if hasattr(self, "has_reference_momentum_state"):
             for i, sd in enumerate(self.mdg.subdomains(dim=self.nd)):
                 reference_displacement = pp.ad.TimeDependentDenseArray(
@@ -162,6 +207,8 @@ class IterationExporting:
                         displacement_time_increment.value(self.equation_system),
                     )
                 )
+
+        # Deviation from reference state (pressure).
         if hasattr(self, "has_reference_flow_state"):
             for i, sd in enumerate(self.mdg.subdomains()):
                 reference_pressure = pp.ad.TimeDependentDenseArray(
@@ -175,7 +222,7 @@ class IterationExporting:
                         self.units.convert_units(
                             pressure_deviation.value(self.equation_system),
                             "Pa",
-                        )
+                        ),
                     )
                 )
                 data.append(
@@ -185,10 +232,11 @@ class IterationExporting:
                         self.units.convert_units(
                             reference_pressure.value(self.equation_system),
                             "Pa",
-                        )
+                        ),
                     )
                 )
 
+        # Deviation from reference state (interface displacement).
         if hasattr(self, "has_reference_momentum_state"):
             for intf in self.mdg.interfaces(dim=self.nd - 1):
                 reference_interface_displacement = pp.ad.TimeDependentDenseArray(
@@ -198,8 +246,8 @@ class IterationExporting:
                     self.interface_displacement([intf])
                     - reference_interface_displacement
                 )
-                interface_displacement_time_increment = (
-                    pp.ad.time_increment(self.interface_displacement([intf]))
+                interface_displacement_time_increment = pp.ad.time_increment(
+                    self.interface_displacement([intf])
                 )
                 data.append(
                     (
@@ -219,36 +267,47 @@ class IterationExporting:
                     (
                         intf,
                         "interface_displacement_time_increment",
-                        interface_displacement_time_increment.value(self.equation_system),
+                        interface_displacement_time_increment.value(
+                            self.equation_system
+                        ),
                     )
                 )
+
+        # Check which data could not be exported
         if len(not_exported) > 0:
             not_exported = list(set(not_exported))
             logger.info(f"Not all data could be exported. Missing: {not_exported}")
 
         # Add contact states
-        states = self.compute_fracture_states(split_output=True, trial=False)
+        states = self.compute_fracture_states(concatenate=False)
         for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
             data.append((sd, "states", states[i]))
+
+        # For debugging initialization
+        for sd in self.mdg.subdomains():
+            try:
+                porosity = self.porosity([sd])
+                data.append((sd, "porosity", porosity.value(self.equation_system)))
+            except Exception:
+                not_exported.append("porosity")
 
         return data
 
     def data_to_export_iteration(self):
         """Returns data for iteration exporting.
 
-        Plots:
-            - Variables
-            - Variable increments
-            - Contact states
-            - Time increments of u_t
-
         Returns:
             Any type compatible with data argument of pp.Exporter().write_vtu().
 
         """
+        # Monitor which data could not be exported
+        not_exported = []
+
+        # Initialize data list
+        data = []
+
         # The following is a slightly modified copy of the method
         # data_to_export() from DataSavingMixin.
-        data = []
         variables = self.equation_system.variables
         for var in variables:
             # Note that we use iterate_index=0 to get the current solution, whereas
@@ -260,51 +319,49 @@ class IterationExporting:
             values = self.units.convert_units(scaled_values, units, to_si=True)
             data.append((var.domain, var.name, values))
 
-            # Append increments if available
+            # Append increments if available (zero for first iteration)
             try:
                 prev_scaled_values = self.equation_system.get_variable_values(
                     variables=[var], iterate_index=1
                 )
-                inc_values = self.units.convert_units(
-                    scaled_values - prev_scaled_values, units, to_si=True
-                )
-            except:
-                inc_values = self.units.convert_units(
-                    scaled_values - scaled_values, units, to_si=True
-                )
+            except Exception:
+                prev_scaled_values = scaled_values
+            inc_values = self.units.convert_units(
+                scaled_values - prev_scaled_values, units, to_si=True
+            )
             data.append((var.domain, var.name + "_inc", inc_values))
 
-        if False:
-            for sd in self.mdg.subdomains(dim=self.nd, return_data=False):
-                matrix_perm = self.matrix_permeability([sd])
-                data.append(
-                    (sd, "matrix_perm", matrix_perm.value(self.equation_system))
-                )
-
-        # Add residuals for each subproblem - use variables as a proxy for subproblems
-        try:
-            _, residual = self.linear_system
-            # Fetch all var names
-            for var in variables:
-                var_dofs = self.equation_system.dofs_of([var])
-                data.append((var.domain, var.name + "_equation", residual[var_dofs]))
-        except:
-            ...
+        # Add residuals for each subproblem.
+        _, residual = self.linear_system
+        equation_blocks = {
+            name: (
+                self.equation_system.assembled_equation_indices[name],
+                list(
+                    self.equation_system._equation_image_space_composition[name].keys()
+                )[0],
+                self.equation_system._equation_image_size_info[name]["cells"],
+            )
+            for name in self.equation_system._equations
+        }
+        for name, (indices, sd, eq_dim) in equation_blocks.items():
+            data.append(
+                (sd, name, residual[indices].reshape((eq_dim, -1), order="F")[0])
+            )
 
         # Exclude contact_traction from data and scale it.
         data = [d for d in data if d[1] != "contact_traction"]
 
-        # Add contact states and time increments of u_t.
-        # Include various apertures and normal permeabilities.
-        not_exported = []
+        # Add data to the fracture
         for sd in self.mdg.subdomains(dim=self.nd - 1):
             nd_vec_to_normal = self.normal_component([sd])
             nd_vec_to_tangential = self.tangential_component([sd])
 
+            # Append scaled contact traction
             scaled_contact_traction = self.characteristic_contact_traction(
                 [sd]
             ) * self.contact_traction([sd])
-
+            t_n: pp.ad.Operator = nd_vec_to_normal @ scaled_contact_traction
+            t_t: pp.ad.Operator = nd_vec_to_tangential @ scaled_contact_traction
             data.append(
                 (
                     sd,
@@ -312,19 +369,41 @@ class IterationExporting:
                     scaled_contact_traction.value(self.equation_system),
                 )
             )
+            data.append(
+                (
+                    sd,
+                    "contact_traction_n",
+                    self.units.convert_units(1, "Pa^-1")
+                    * t_n.value(self.equation_system),
+                )
+            )
+            data.append(
+                (
+                    sd,
+                    "contact_traction_t",
+                    self.units.convert_units(1, "Pa^-1")
+                    * t_t.value(self.equation_system),
+                )
+            )
 
-            # Contact mechanics
-            t_n: pp.ad.Operator = nd_vec_to_normal @ scaled_contact_traction
-            u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump([sd])
-            t_t: pp.ad.Operator = nd_vec_to_tangential @ scaled_contact_traction
-            u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump([sd])
-            u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
+            # Append slip tendency
             f_norm = pp.ad.Function(
                 partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
             )
             t_t_norm: pp.ad.Operator = f_norm(t_t)
             slip_tendency: pp.ad.Operator = t_t_norm / t_n
+            data.append(
+                (
+                    sd,
+                    "slip_tendency",
+                    slip_tendency.value(self.equation_system),
+                )
+            )
 
+            # Append normal and tangential displacement and increments
+            u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump([sd])
+            u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump([sd])
+            u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
             data.append(
                 (
                     sd,
@@ -346,107 +425,65 @@ class IterationExporting:
                     u_t_increment.value(self.equation_system),
                 )
             )
-            data.append(
-                (
-                    sd,
-                    "contact_traction_n",
-                    self.units.convert_units(1, "Pa^-1")
-                    * t_n.value(self.equation_system),
-                )
-            )
-            data.append(
-                (
-                    sd,
-                    "contact_traction_t",
-                    self.units.convert_units(1, "Pa^-1")
-                    * t_t.value(self.equation_system),
-                )
-            )
-            data.append(
-                (
-                    sd,
-                    "slip_tendency",
-                    slip_tendency.value(self.equation_system),
-                )
-            )
 
+            # Append aperture
+            aperture = self.aperture([sd])
+            data.append((sd, "aperture", aperture.value(self.equation_system)))
+
+            # Append fracture gap
+            fracture_gap = self.fracture_gap([sd])
+            data.append((sd, "fracture_gap", fracture_gap.value(self.equation_system)))
+
+            # Append permeability
             try:
-                c_n = self.contact_mechanics_numerical_constant(subdomains)
-                force = pp.ad.Scalar(-1.0) * t_n
-                gap = c_n * (u_n - self.fracture_gap(subdomains))
-                f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-                ncp_equation_normal = pp.ad.Scalar(-1) * f_max(
-                    pp.ad.Scalar(-1) * force,
-                    pp.ad.Scalar(-1) * gap,
-                )
-                data.append(
-                    (
-                        sd,
-                        "ncp_equation_normal",
-                        ncp_equation_normal.value(self.equation_system),
-                    )
-                )
-                data.append(
-                    (sd, "gap", gap.value(self.equation_system)),
-                )
-            except:
-                not_exported.append("ncp_equation_normal")
+                perm = self.permeability([sd])
+                data.append((sd, "perm", perm.value(self.equation_system)))
+            except Exception:
+                not_exported.append("permeability")
 
+            # Append yield criterion
             try:
                 yield_criterion = self.yield_criterion([sd])
-                scaled_orthogonality = self.orthogonality([sd])
-                ncp_equation_tangential = pp.ad.Scalar(-1) * f_max(
-                    pp.ad.Scalar(-1) * yield_criterion,
-                    pp.ad.Scalar(-1) * scaled_orthogonality,
-                )
                 data.append(
                     (sd, "yield_criterion", yield_criterion.value(self.equation_system))
                 )
+            except Exception:
+                not_exported.append("yield criterion")
+
+            # Append orthogonality
+            try:
+                orthogonality = self.orthogonality([sd])
                 data.append(
                     (
                         sd,
                         "orthogonality",
-                        scaled_orthogonality.value(self.equation_system),
+                        orthogonality.value(self.equation_system),
                     )
                 )
-                data.append(
-                    (
-                        sd,
-                        "ncp_equation_tangential",
-                        ncp_equation_tangential.value(self.equation_system),
-                    )
-                )
-            except:
-                not_exported.append("ncp_equation_tangential")
+            except Exception:
+                not_exported.append("orthogonality")
 
+            # Append alignment
             try:
-                normal_fracture_deformation_equation = (
-                    self.normal_fracture_deformation_equation([sd])
-                )
-                tangential_fracture_deformation_equation = (
-                    self.tangential_fracture_deformation_equation([sd])
-                )
-                data.append(
-                    (
-                        sd,
-                        "normal_fracture_deformation_equation",
-                        normal_fracture_deformation_equation.value(
-                            self.equation_system
-                        ),
-                    )
-                )
-                data.append(
-                    (
-                        sd,
-                        "tangential_fracture_deformation_equation",
-                        tangential_fracture_deformation_equation.value(
-                            self.equation_system
-                        ),
-                    )
-                )
-            except:
-                not_exported.append("fracture_deformation_equation")
+                alignment = self.alignment([sd])
+                data.append((sd, "alignment", alignment.value(self.equation_system)))
+            except Exception:
+                not_exported.append("alignment")
 
+            # Append colinearity condition
+            try:
+                colinearity_condition = self.colinearity_condition([sd])
+                data.append(
+                    (
+                        sd,
+                        "colinearity_condition",
+                        colinearity_condition.value(self.equation_system),
+                    )
+                )
+            except Exception:
+                not_exported.append("colinearity_condition")
+
+            # Append characteristic of the origin
             try:
                 f_norm = pp.ad.Function(
                     partial(pp.ad.l2_norm, self.nd - 1), "norm_function"
@@ -470,37 +507,11 @@ class IterationExporting:
             except:
                 not_exported.append("characteristic_origin")
 
-            try:
-                alignment = self.alignment([sd])
-                data.append((sd, "alignment", alignment.value(self.equation_system)))
-            except:
-                not_exported.append("alignment")
-
-            # Fluid flow
-            try:
-                aperture = self.aperture([sd])
-                fracture_gap = self.fracture_gap([sd])
-
-                # Append data
-                data.append((sd, "aperture", aperture.value(self.equation_system)))
-                data.append(
-                    (sd, "fracture_gap", fracture_gap.value(self.equation_system))
-                )
-            except:
-                not_exported.append("aperture and fracture gap")
-
-            try:
-                perm = self.permeability([sd])
-                data.append((sd, "perm", perm.value(self.equation_system)))
-            except:
-                not_exported.append("permeability")
-
         # Add contact states
         try:
-            states = self.compute_fracture_states(split_output=True)
+            states = self.compute_fracture_states(concatenate=False)
             for i, sd in enumerate(self.mdg.subdomains(dim=self.nd - 1)):
                 data.append((sd, "contact states", states[i]))
-
         except:
             not_exported.append("contact states")
 
