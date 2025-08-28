@@ -8,27 +8,117 @@ import logging
 import porepy as pp
 from typing import cast
 
+from enum import IntEnum
+
+logger = logging.getLogger(__name__)
+
+
+class FractureState(IntEnum):
+    """Fracture states."""
+
+    STICK = 0
+    SLIP = 1
+    OPEN = 2
+
+    @property
+    def values(self) -> list["FractureState"]:
+        """Return the range of admissible states."""
+        return [FractureState.STICK, FractureState.SLIP, FractureState.OPEN]
+
+    def astype(self, dtype) -> int:
+        if dtype == int:
+            return self.value
+        else:
+            raise ValueError(f"Cannot convert FractureState to {dtype}")
+
+    # Define != operator
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __eq__(self, other):
+        if isinstance(other, FractureState):
+            return self.value == other.value
+        elif isinstance(other, int):
+            return self.value == other
+        else:
+            return False
+
 
 class FractureStates:
-    """Compute states of each fracture cell using the cumulative tangential"""
+    """Criteria for fracture states, and tools for monitoring."""
 
-    def compute_fracture_states(self, concatenate: bool = True):
+    mdg: pp.MixedDimensionalGrid
+    """The mixed-dimensional grid."""
+
+    equation_system: pp.ad.EquationSystem
+    """The equation system."""
+
+    numerical: pp.NumericalConstants
+    """Numerical parameters."""
+
+    normal_component: pp.ad.Operator
+    """Operator to extract the normal component of a vector."""
+
+    tangential_component: pp.ad.Operator
+    """Operator to extract the tangential component of a vector."""
+
+    friction_bound: pp.ad.Operator
+    """The friction bound operator."""
+
+    characteristic_contact_traction: pp.ad.Function
+    """Characteristic contact traction function."""
+
+    friction_coefficient: pp.ad.Function
+    """Friction coefficient function."""
+
+    contact_traction: pp.ad.Operator
+    """Contact traction operator."""
+
+    displacement_jump: pp.ad.Operator
+    """Displacement jump operator."""
+
+    nd: int
+    """Number of spatial dimensions."""
+
+    units: pp.Units
+    """Units."""
+
+    def compute_fracture_states(
+        self, concatenate: bool = True
+    ) -> np.ndarray | list[np.ndarray]:
         """
         Compute states of each fracture cell, based on the textbook criteria.
 
-        Value convention:
-        - Stick=0
-        - Slip=1
-        - Open=2
+        Args:
+            concatenate (bool, optional): Whether to concatenate the outputs shall be merged
+                across all fracture domains or reported separately.
+
+        Returns:
+            np.ndarray: The states.
+            dict[str, float]: The area of each fracture state.
+
+            If concatenate is False, returns a list of tuples, one per fracture subdomain.
+
+        """
+        subdomains = self.mdg.subdomains(dim=self.nd - 1)
+        if concatenate:
+            return self._compute_fracture_states(subdomains)
+        else:
+            return [self._compute_fracture_states([sd]) for sd in subdomains]
+
+    def _compute_fracture_states(self, subdomains: list[pp.Grid]) -> np.ndarray:
+        """
+        Compute states of each fracture cell, based on the textbook criteria.
 
         Args:
-            concatenate (bool, optional): Whether to concatenate the output into a
-            single vector. Defaults to True.
+            subdomains (list[pp.Grid]): List of fracture subdomains.
+
+        Returns:
+            np.ndarray | The states of each fracture cell in subdomains.
 
         """
         # Preparations.
         states = []
-        subdomains = self.mdg.subdomains(dim=self.nd - 1)
 
         # Compute normal traction to decide: open vs closed.
         t_n: pp.ad.Operator = self.normal_component(subdomains) @ self.contact_traction(
@@ -42,40 +132,161 @@ class FractureStates:
         yield_criterion = self.friction_bound(subdomains) - f_norm(t_t)
         yield_criterion_eval = self.equation_system.evaluate(yield_criterion)
 
-        # Use consistent tolerance as in the equations to discuss boundary cases.
+        # Determine the state of each fracture cell. Check the normal traction and the yield
+        # criterion. Use consistent tolerance as in the equations to discuss boundary cases.
         tol = self.numerical.open_state_tolerance
-
-        # Determine the state of each fracture cell.
-        conversion = {
-            "stick": 0,
-            "slip": 1,
-            "open": 2,
-            "unknown": -1,
-        }
         for tn_val, yc_val in zip(t_n_eval, yield_criterion_eval):
             if tn_val >= -tol:
-                states.append(conversion["open"])
+                states.append(FractureState.OPEN)
             elif yc_val > tol:
-                states.append(conversion["stick"])
+                states.append(FractureState.STICK)
             elif yc_val <= tol:
-                states.append(conversion["slip"])
+                states.append(FractureState.SLIP)
             else:
-                states.append(conversion["unknown"])
-                logging.info("Should not get here.", tn_val, yc_val, tol)
+                raise ValueError(f"Non-admissible state: tn={tn_val}, yc={yc_val}")
 
-        # Return in requested format
-        if concatenate:
-            return np.array(states)
-        else:
-            split_states = []
-            num_cells = []
-            for sd in subdomains:
-                prev_num_cells = int(sum(num_cells))
-                split_states.append(
-                    np.array(states[prev_num_cells : prev_num_cells + sd.num_cells])
-                )
-                num_cells.append(sd.num_cells)
-            return split_states
+        return np.array(states)
+
+    def num_fracture_states(self) -> dict[str, int]:
+        """Compute the number of each fracture state.
+
+        Returns:
+            dict[str, int]: A dictionary with the number of each fracture state.
+
+        """
+        fracture_states = self.compute_fracture_states()
+        num_fracture_states = {
+            state.name: int(np.count_nonzero(fracture_states == state))
+            for state in FractureState
+        }
+        num_fracture_states["total"] = int(len(fracture_states))
+        return num_fracture_states
+
+    def area_fracture_states(self) -> dict[str, float]:
+        """Compute the area of each fracture state.
+
+        Returns:
+            dict[str, float]: A dictionary with the areas of each fracture state.
+
+        """
+        subdomains = self.mdg.subdomains(dim=self.nd - 1)
+        discrete_fracture_states = self._compute_fracture_states(subdomains)
+        cell_volumes = np.concatenate([sd.cell_volumes for sd in subdomains])
+        area_fracture_states = {
+            state.name: float(np.sum(cell_volumes[discrete_fracture_states == state]))
+            for state in FractureState
+        }
+        area_fracture_states["total"] = float(np.sum(cell_volumes))
+        return area_fracture_states
+
+    def num_fracture_states_diff(self, fracture_states_1, fracture_states_2) -> int:
+        """Compute the number of different fracture states between two sets of states.
+
+        Args:
+            fracture_states_1 (np.ndarray): First set of fracture states.
+            fracture_states_2 (np.ndarray): Second set of fracture states.
+
+        Returns:
+            int: The number of different fracture states.
+
+        """
+        if len(fracture_states_1) != len(fracture_states_2):
+            raise ValueError("Fracture states must have the same length.")
+        return int(np.count_nonzero(fracture_states_1 != fracture_states_2))
+
+    def area_fracture_states_diff(self, fracture_states_1, fracture_states_2) -> float:
+        """Compute the area of changing fracture states between two sets of states.
+
+        Args:
+            fracture_states_1 (np.ndarray): First set of fracture states.
+            fracture_states_2 (np.ndarray): Second set of fracture states.
+
+        Returns:
+            float: The difference in area of changing fracture states.
+
+        """
+        subdomains = self.mdg.subdomains(dim=self.nd - 1)
+        cell_volumes = np.concatenate([sd.cell_volumes for sd in subdomains])
+        return np.sum(
+            (fracture_states_1 != fracture_states_2).astype(int) * cell_volumes
+        )
+
+    def log_fracture_state_statistics(self):
+        """Monitor objectives."""
+
+        # Determine current fracture state status
+        num_fracture_states = self.num_fracture_states()
+        area_fracture_states = self.area_fracture_states()
+
+        # Determine change in discrete objectives in time.
+        fracture_states = self.compute_fracture_states()
+        if not hasattr(self, "previous_timestep_fracture_states"):
+            self.previous_timestep_fracture_states = fracture_states.copy()
+        num_fracture_states_diff_in_time = self.num_fracture_states_diff(
+            fracture_states, self.previous_timestep_fracture_states
+        )
+        area_fracture_states_diff_in_time = self.area_fracture_states_diff(
+            fracture_states, self.previous_timestep_fracture_states
+        )
+
+        # Determine total changes in iterations.
+        if not hasattr(self, "previous_iteration_fracture_states"):
+            self.previous_iteration_fracture_states = fracture_states.copy()
+        num_fracture_states_diff_in_iteration = self.num_fracture_states_diff(
+            fracture_states, self.previous_iteration_fracture_states
+        )
+        area_fracture_states_diff_in_iteration = self.area_fracture_states_diff(
+            fracture_states, self.previous_iteration_fracture_states
+        )
+
+        # Cache current states for next time step and iteration.
+        # NOTE: Builds on the assumption that logging is performed after
+        # the counter of nonlinear iterations is increased before logging.
+        if self.nonlinear_solver_statistics.num_iterations == 1:
+            self.previous_timestep_fracture_states = fracture_states.copy()
+        self.previous_iteration_fracture_states = fracture_states.copy()
+
+        # Logging.
+        logger.info(f"Number of fracture states: {num_fracture_states}")
+        logger.info(f"Area of fracture states: {area_fracture_states}")
+        logger.info(f"Number changes in time: {num_fracture_states_diff_in_time}")
+        logger.info(
+            f"Area of changing fracture states in time: {area_fracture_states_diff_in_time}"
+        )
+        logger.info(
+            f"Number changes in iteration: {num_fracture_states_diff_in_iteration}"
+        )
+        logger.info(
+            f"Area of changing fracture states in iteration: {area_fracture_states_diff_in_iteration}"
+        )
+
+        # Solver statistics logging.
+        self.nonlinear_solver_statistics.log_custom_data(
+            **{
+                "num_fracture_states": num_fracture_states,
+                "area_fracture_states": area_fracture_states,
+                "num_fracture_states_changes_in_time": num_fracture_states_diff_in_time,
+                "area_fracture_states_changes_in_time": area_fracture_states_diff_in_time,
+                "num_fracture_states_changes_in_iteration": num_fracture_states_diff_in_iteration,
+                "area_fracture_states_changes_in_iteration": area_fracture_states_diff_in_iteration,
+            }
+        )
+
+    def save_data_time_step(self) -> None:
+        """Save data at the end of a time step."""
+        # Assume super().save_data_time_step() saves the state of the
+        # nonlinear solver statistics object. Thus, we log the fracture
+        # state statistics before calling the super method.
+        self.log_fracture_state_statistics()
+        super().save_data_time_step()
+
+    def save_data_iteration(self) -> None:
+        """Save data at the end of a nonlinear iteration."""
+        # Assume super().save_data_iteration() saves the state of the
+        # nonlinear solver statistics object. Thus, we log the fracture
+        # state statistics before calling the super method.
+        self.log_fracture_state_statistics()
+        super().save_data_iteration()
 
 
 class NCPContactIndicators(pp.models.solution_strategy.ContactIndicators):
