@@ -16,7 +16,8 @@ class NewtonWithCyclingCheck(pp.NewtonSolver):
     """
 
     @abstractmethod
-    def reset_cycling_analysis(self): ...
+    def reset_cycling_analysis(self):
+        """Clean up of potential cache etc."""
 
     @abstractmethod
     def check_cycling(self, model) -> bool:
@@ -186,7 +187,7 @@ class CyclingCriterion:
                     ]
                 )
             ):
-                cycling_window = len(self.cached_objectives["contact_states"]) - i
+                cycling_window = self.num_cached_objectives - i
                 logger.info(f"Cycling detected with window {cycling_window}.")
                 break
 
