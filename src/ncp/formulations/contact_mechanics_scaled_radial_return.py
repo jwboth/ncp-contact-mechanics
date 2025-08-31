@@ -15,7 +15,7 @@ class ScaledRadialReturnTangentialContact:
 
         """
         raise NotImplementedError(
-            "Method 'scaling_radial_return' must be implemented in the subclass."
+            "Method 'scaling_exponent_radial_return' must be implemented in the subclass."
         )
 
     def tangential_fracture_deformation_equation(
@@ -159,5 +159,13 @@ class DecayingScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCo
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
 
         # Exponent, being 1.0 inside the feasible regime, and decaying to 0.0 outside.
-        exponent = f_exp(-(f_max(norm_t_t - b_p, zeros_frac) ** 2) / (b_p**2))
+        # The zero limit is reached at roughly 2 times the friction bound.
+        exponent = f_max(
+            pp.ad.Scalar(1.0)
+            - pp.ad.Scalar(0.5)
+            * f_max(norm_t_t - b_p, zeros_frac)
+            / f_max(b_p, pp.ad.Scalar(1e-10)),
+            pp.ad.Scalar(0.0),
+        )
+        # exponent = f_exp(-(f_max(norm_t_t - b_p, zeros_frac)))  # / (b_p**2))
         return exponent
