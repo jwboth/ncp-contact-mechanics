@@ -219,8 +219,13 @@ class FractureStates:
         area_fracture_states = self.area_fracture_states()
 
         # Determine change in discrete objectives in time.
+        # Caching of previous time step is build on the assumption that the
+        # the counter of nonlinear iterations is increased after logging.
         fracture_states = self.compute_fracture_states()
-        if not hasattr(self, "previous_timestep_fracture_states"):
+        if (
+            not hasattr(self, "previous_timestep_fracture_states")
+            or self.nonlinear_solver_statistics.num_iterations == 0
+        ):
             self.previous_timestep_fracture_states = fracture_states.copy()
         num_fracture_states_diff_in_time = self.num_fracture_states_diff(
             fracture_states, self.previous_timestep_fracture_states
@@ -239,11 +244,7 @@ class FractureStates:
             fracture_states, self.previous_iteration_fracture_states
         )
 
-        # Cache current states for next time step and iteration.
-        # NOTE: Builds on the assumption that logging is performed after
-        # the counter of nonlinear iterations is increased before logging.
-        if self.nonlinear_solver_statistics.num_iterations == 1:
-            self.previous_timestep_fracture_states = fracture_states.copy()
+        # Cache current states for next iteration.
         self.previous_iteration_fracture_states = fracture_states.copy()
 
         # Logging.
@@ -260,33 +261,29 @@ class FractureStates:
             f"Area of changing fracture states in iteration: {area_fracture_states_diff_in_iteration}"
         )
 
-        # Solver statistics logging.
+        # Solver statistics logging - differentiated between non-fixed and fixed for
+        # the time step.
         self.nonlinear_solver_statistics.log_custom_data(
             **{
                 "num_fracture_states": num_fracture_states,
                 "area_fracture_states": area_fracture_states,
-                "num_fracture_states_changes_in_time": num_fracture_states_diff_in_time,
-                "area_fracture_states_changes_in_time": area_fracture_states_diff_in_time,
                 "num_fracture_states_changes_in_iteration": num_fracture_states_diff_in_iteration,
                 "area_fracture_states_changes_in_iteration": area_fracture_states_diff_in_iteration,
-            }
+            },
+            append=True,
+        )
+        self.nonlinear_solver_statistics.log_custom_data(
+            **{
+                "num_fracture_states_changes_in_time": num_fracture_states_diff_in_time,
+                "area_fracture_states_changes_in_time": area_fracture_states_diff_in_time,
+            },
+            append=False,
         )
 
-    def save_data_time_step(self) -> None:
-        """Save data at the end of a time step."""
-        # Assume super().save_data_time_step() saves the state of the
-        # nonlinear solver statistics object. Thus, we log the fracture
-        # state statistics before calling the super method.
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        """Hook to be called after each nonlinear iteration."""
         self.log_fracture_state_statistics()
-        super().save_data_time_step()
-
-    def save_data_iteration(self) -> None:
-        """Save data at the end of a nonlinear iteration."""
-        # Assume super().save_data_iteration() saves the state of the
-        # nonlinear solver statistics object. Thus, we log the fracture
-        # state statistics before calling the super method.
-        self.log_fracture_state_statistics()
-        super().save_data_iteration()
+        super().after_nonlinear_iteration(nonlinear_increment)
 
 
 class NCPContactIndicators(pp.models.solution_strategy.ContactIndicators):
