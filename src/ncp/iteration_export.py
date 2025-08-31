@@ -6,12 +6,17 @@ from functools import partial
 
 import numpy as np
 import porepy as pp
+from typing import Any
+from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
 
 logger = logging.getLogger(__name__)
 
 
 class IterationExporting:
     """Class for exporting iteration-dependent approximations."""
+
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Solver statistics object for the non-linear solver."""
 
     @property
     def iterate_indices(self):
@@ -29,14 +34,14 @@ class IterationExporting:
             length_scale=self.units.m,
         )
 
-    def after_nonlinear_iteration(self, solution_vector: np.ndarray) -> None:
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
         """Integrate iteration export into simulation workflow.
 
         Order of operations is important, super call distributes the solution
         to iterate subdictionary.
 
         """
-        super().after_nonlinear_iteration(solution_vector)
+        super().after_nonlinear_iteration(nonlinear_increment)
         self.save_data_iteration()
         self.iteration_exporter.write_pvd()
 
@@ -61,9 +66,10 @@ class IterationExporting:
         self.iteration_exporter.write_vtu(
             self.data_to_export_iteration(),
             time_dependent=True,
-            time_step=self.nonlinear_solver_statistics.num_iteration
+            time_step=self.nonlinear_solver_statistics.num_iterations
             + r * self.time_manager.time_index,
         )
+        self.nonlinear_solver_statistics.save()
 
     def data_to_export(self):
         """Add data to regular data export:
