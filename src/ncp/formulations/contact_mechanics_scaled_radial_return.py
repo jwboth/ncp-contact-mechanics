@@ -144,7 +144,6 @@ class DecayingScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCo
     def scaling_exponent_radial_return(self, subdomains) -> pp.ad.Operator:
         """Scaling exponent for the radial return projection."""
         # Some functions.
-        f_exp = pp.ad.Function(pp.ad.exp, "exp_function")
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
