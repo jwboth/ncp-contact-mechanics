@@ -163,7 +163,7 @@ class DecayingScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCo
             pp.ad.Scalar(1.0)
             - pp.ad.Scalar(0.5)
             * f_max(norm_t_t - b_p, zeros_frac)
-            / f_max(b_p, pp.ad.Scalar(1e-10)),
+            / f_max(b_p, pp.ad.Scalar(self.numerical.open_state_tolerance)),
             pp.ad.Scalar(0.0),
         )
         # exponent = f_exp(-(f_max(norm_t_t - b_p, zeros_frac)))  # / (b_p**2))
