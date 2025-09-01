@@ -12,65 +12,7 @@ from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
 logger = logging.getLogger(__name__)
 
 
-class IterationExporting:
-    """Class for exporting iteration-dependent approximations."""
-
-    nonlinear_solver_statistics: pp.SolverStatistics
-    """Solver statistics object for the non-linear solver."""
-
-    @property
-    def iterate_indices(self):
-        """Force storing all previous iterates."""
-        return np.array([0, 1])
-
-    def initialize_data_saving(self):
-        """Initialize iteration exporter."""
-        super().initialize_data_saving()
-        self.iteration_exporter = pp.Exporter(
-            self.mdg,
-            file_name=self.params["file_name"] + "_iterations",
-            folder_name=self.params["folder_name"],
-            export_constants_separately=False,
-            length_scale=self.units.m,
-        )
-
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-        """Integrate iteration export into simulation workflow.
-
-        Order of operations is important, super call distributes the solution
-        to iterate subdictionary.
-
-        """
-        super().after_nonlinear_iteration(nonlinear_increment)
-        self.save_data_iteration()
-        self.iteration_exporter.write_pvd()
-
-    def save_data_iteration(self):
-        """Export current solution to vtu files.
-
-        This method is typically called by after_nonlinear_iteration.
-
-        Having a separate exporter for iterations avoids distinguishing
-        between iterations and time steps in the regular exporter's
-        history (used for export_pvd).
-
-        """
-        # To make sure the nonlinear iteration index does not interfere with
-        # the time part, we multiply the latter by the next power of ten above
-        # the maximum number of nonlinear iterations. Default value set to 10
-        # in accordance with the default value used in NewtonSolver
-        n = self.params.get("nl_max_iterations", 10)
-        r = 10
-        while r <= n:
-            r *= 10
-        self.iteration_exporter.write_vtu(
-            self.data_to_export_iteration(),
-            time_dependent=True,
-            time_step=self.nonlinear_solver_statistics.num_iterations
-            + r * self.time_manager.time_index,
-        )
-        self.nonlinear_solver_statistics.save()
-
+class CustomExporting:
     def data_to_export(self):
         """Add data to regular data export:
         * fracture aperture
@@ -299,6 +241,66 @@ class IterationExporting:
 
         return data
 
+
+class IterationExporting:
+    """Class for exporting iteration-dependent approximations."""
+
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Solver statistics object for the non-linear solver."""
+
+    @property
+    def iterate_indices(self):
+        """Force storing all previous iterates."""
+        return np.array([0, 1])
+
+    def initialize_data_saving(self):
+        """Initialize iteration exporter."""
+        super().initialize_data_saving()
+        self.iteration_exporter = pp.Exporter(
+            self.mdg,
+            file_name=self.params["file_name"] + "_iterations",
+            folder_name=self.params["folder_name"],
+            export_constants_separately=False,
+            length_scale=self.units.m,
+        )
+
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        """Integrate iteration export into simulation workflow.
+
+        Order of operations is important, super call distributes the solution
+        to iterate subdictionary.
+
+        """
+        super().after_nonlinear_iteration(nonlinear_increment)
+        self.save_data_iteration()
+        self.iteration_exporter.write_pvd()
+
+    def save_data_iteration(self):
+        """Export current solution to vtu files.
+
+        This method is typically called by after_nonlinear_iteration.
+
+        Having a separate exporter for iterations avoids distinguishing
+        between iterations and time steps in the regular exporter's
+        history (used for export_pvd).
+
+        """
+        # To make sure the nonlinear iteration index does not interfere with
+        # the time part, we multiply the latter by the next power of ten above
+        # the maximum number of nonlinear iterations. Default value set to 10
+        # in accordance with the default value used in NewtonSolver
+        n = self.params.get("nl_max_iterations", 10)
+        r = 10
+        while r <= n:
+            r *= 10
+        self.iteration_exporter.write_vtu(
+            self.data_to_export_iteration(),
+            time_dependent=True,
+            time_step=self.nonlinear_solver_statistics.num_iterations
+            + r * self.time_manager.time_index,
+        )
+        self.nonlinear_solver_statistics.save()
+
     def data_to_export_iteration(self):
         """Returns data for iteration exporting.
 
@@ -337,22 +339,22 @@ class IterationExporting:
             )
             data.append((var.domain, var.name + "_inc", inc_values))
 
-        # Add residuals for each subproblem.
-        _, residual = self.linear_system
-        equation_blocks = {
-            name: (
-                self.equation_system.assembled_equation_indices[name],
-                list(
-                    self.equation_system._equation_image_space_composition[name].keys()
-                )[0],
-                self.equation_system._equation_image_size_info[name]["cells"],
-            )
-            for name in self.equation_system._equations
-        }
-        for name, (indices, sd, eq_dim) in equation_blocks.items():
-            data.append(
-                (sd, name, residual[indices].reshape((eq_dim, -1), order="F")[0])
-            )
+        ## Add residuals for each subproblem.
+        # _, residual = self.linear_system
+        # equation_blocks = {
+        #    name: (
+        #        self.equation_system.assembled_equation_indices[name],
+        #        list(
+        #            self.equation_system._equation_image_space_composition[name].keys()
+        #        )[0],
+        #        self.equation_system._equation_image_size_info[name]["cells"],
+        #    )
+        #    for name in self.equation_system._equations
+        # }
+        # for name, (indices, sd, eq_dim) in equation_blocks.items():
+        #    data.append(
+        #        (sd, name, residual[indices].reshape((eq_dim, -1), order="F")[0])
+        #    )
 
         # Exclude contact_traction from data and scale it.
         data = [d for d in data if d[1] != "contact_traction"]
