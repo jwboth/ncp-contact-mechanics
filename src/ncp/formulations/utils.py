@@ -1,6 +1,8 @@
 # TODO collect all available formulations by key
 from enum import StrEnum
 import ncp
+import tomli
+from pathlib import Path
 
 
 class NormalContactMechanicsFormulation(StrEnum):
@@ -214,3 +216,22 @@ def make_contact_mechanics_model(
     Model = ModelWithTangentialContact
 
     return Model
+
+
+def make_contact_mechanics_model_from_toml(path: Path, Model) -> dict:
+    """Set up geometry parameters from a TOML configuration file.
+
+    Args:
+        config_path (Path): Path to the TOML configuration file.
+        model_params (dict): Model parameters dictionary to be updated.
+
+    Returns:
+        dict: Dictionary containing geometry parameters.
+    """
+    with open(path, "rb") as f:
+        config = tomli.load(f)
+    normal_formulation = config["contact"]["normal_formulation"]
+    tangential_formulation = config["contact"]["tangential_formulation"]
+    return make_contact_mechanics_model(
+        Model, normal_formulation, tangential_formulation
+    )
