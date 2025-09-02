@@ -21,4 +21,4 @@ from .contact_mechanics_scaled_normal_projection import (
     RandomScaledAlartCurnier_NormalContact,
     DecayingScaledAlartCurnier_NormalContact,
 )
-from .utils import make_contact_mechanics_model
+from .utils import make_contact_mechanics_model, make_contact_mechanics_model_from_toml
