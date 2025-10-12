@@ -51,7 +51,7 @@ class NewtonWithCyclingCheck(pp.NewtonSolver):
         # Cycling check
         is_cycling = self.check_cycling(model)
         if is_cycling:
-            convergence_status = ConvergenceStatus.CYCLING
+            convergence_status = ConvergenceStatus.CYCLED
 
         return convergence_status, info
 
@@ -101,6 +101,17 @@ class CyclingCriterion:
                 while len(self.cached_objectives[outer_key][inner_key]) > 10:
                     self.cached_objectives[outer_key][inner_key].pop(0)
 
+        self.update_num_cached_objectives()
+
+    def update_num_cached_objectives(self) -> None:
+        self.num_cached_objectives = min(
+            [
+                len(self.cached_objectives[outer_key][inner_key])
+                for outer_key in self.cached_objectives
+                for inner_key in self.cached_objectives[outer_key]
+            ]
+        )
+
     def update_cycling_cache(self, objectives: dict) -> None:
         """Update the cache with new objectives.
 
@@ -116,13 +127,7 @@ class CyclingCriterion:
                 )
 
         # Update number of cached objectives.
-        self.num_cached_objectives = min(
-            [
-                len(self.cached_objectives[outer_key][inner_key])
-                for outer_key in self.cached_objectives
-                for inner_key in self.cached_objectives[outer_key]
-            ]
-        )
+        self.update_num_cached_objectives()
 
     def check_cycling(self, model) -> bool:
         """Check for cycling in contact states.
