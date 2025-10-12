@@ -296,7 +296,7 @@ class IterationExporting:
         self.iteration_exporter.write_vtu(
             self.data_to_export_iteration(),
             time_dependent=True,
-            time_step=self.nonlinear_solver_statistics.num_iterations
+            time_step=self.nonlinear_solver_statistics.num_iteration
             + r * self.time_manager.time_index,
         )
         self.nonlinear_solver_statistics.save()

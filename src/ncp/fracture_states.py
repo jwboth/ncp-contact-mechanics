@@ -224,7 +224,7 @@ class FractureStates:
         fracture_states = self.compute_fracture_states()
         if (
             not hasattr(self, "previous_timestep_fracture_states")
-            or self.nonlinear_solver_statistics.num_iterations == 0
+            or self.nonlinear_solver_statistics.num_iteration == 0
         ):
             self.previous_timestep_fracture_states = fracture_states.copy()
         num_fracture_states_diff_in_time = self.num_fracture_states_diff(
