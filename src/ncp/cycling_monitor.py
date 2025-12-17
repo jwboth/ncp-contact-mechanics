@@ -1,79 +1,22 @@
 import logging
 import numpy as np
-import porepy as pp
-from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
+from porepy.numerics.nonlinear.convergence_check import (
+    ConvergenceStatus,
+    DivergenceCriterion,
+)
 from abc import abstractmethod
-from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
 
-class NewtonWithCyclingCheck(pp.NewtonSolver):
-    """Abstract class for Newton solvers with cycling check.
-
-    Requires implementation of cycling check and reset methods.
-
-    """
-
-    @abstractmethod
-    def reset_cycling_analysis(self):
-        """Clean up of potential cache etc."""
-
-    @abstractmethod
-    def check_cycling(self, model) -> bool:
-        """Check for cycling.
-
-        Parameters:
-            model: The model to check for cycling.
-
-        Returns:
-            bool: True if cycling is detected, False otherwise.
-
-        """
-
-    def check_convergence(
-        self, model, nonlinear_increment: np.ndarray
-    ) -> Tuple[ConvergenceStatus, dict]:
-        """Check for convergence, including cycling check.
-
-        Parameters:
-            model: The model to check for convergence.
-            nonlinear_increment: The nonlinear increment to check for convergence.
-
-        Returns:
-            Tuple[ConvergenceStatus, dict]: The convergence status and additional info.
-
-        """
-
-        # Standard convergence check
-        convergence_status, info = super().check_convergence(model, nonlinear_increment)
-
-        # Cycling check
-        is_cycling = self.check_cycling(model)
-        if is_cycling:
-            convergence_status = ConvergenceStatus.CYCLED
-
-        return convergence_status, info
-
-    def solve(self, model) -> ConvergenceStatus:
-        """Overwritten solve method to reset cycling analysis at the start of each solve.
-
-        Parameters:
-            model: The model to solve.
-
-        Returns:
-            ConvergenceStatus: The convergence status after solving.
-
-        """
-        self.reset_cycling_analysis()
-        return super().solve(model)
-
-
-class CyclingCriterion:
+class CyclingCriterion(DivergenceCriterion):
     """Implements a check for cycling."""
 
+    def __init__(self, model):
+        self.model = model
+
     @abstractmethod
-    def fetch_cycling_objectives(self, model) -> dict[str, dict[str, np.ndarray]]:
+    def fetch_cycling_objectives(self) -> dict[str, dict[str, np.ndarray]]:
         """Fetch objectives to monitor for cycling."""
 
     def reset_cycling_analysis(self):
@@ -129,24 +72,27 @@ class CyclingCriterion:
         # Update number of cached objectives.
         self.update_num_cached_objectives()
 
-    def check_cycling(self, model) -> bool:
+    def check(self, *args, **kwargs) -> ConvergenceStatus:
         """Check for cycling in contact states.
 
-        Parameters:
-            model: The model to check for cycling.
-
         Returns:
-            bool: True if cycling is detected, False otherwise.
+            ConvergenceStatus: The convergence status.
 
         """
+
+        assert self.model.nonlinear_solver_statistics is not None
+
+        # Restart analysis if first iteration.
+        if self.model.nonlinear_solver_statistics.num_iteration == 0:
+            self.reset_cycling_analysis()
 
         # Initialize state.
         self.initialize_cycling_cache()
 
         # Fetch objectives.
-        objectives = self.fetch_cycling_objectives(model)
+        objectives = self.fetch_cycling_objectives()
         if not hasattr(self, "previous_objectives"):
-            self.previous_objectives = self.fetch_cycling_objectives(model)
+            self.previous_objectives = self.fetch_cycling_objectives()
 
         # Check for cycling based on 1% closedness
         cycling_window = 0
@@ -197,10 +143,16 @@ class CyclingCriterion:
                 break
 
         # Conclude.
-        is_cycling = cycling_window > 0
+        status = (
+            ConvergenceStatus.CYCLED
+            if cycling_window > 0
+            else ConvergenceStatus.CONVERGED
+        )
 
         # Monitor - pass cycling information to pp.SolverStatistics object for logging.
-        model.nonlinear_solver_statistics.log_custom_data(cycling_window=cycling_window)
+        self.model.nonlinear_solver_statistics.log_custom_data(
+            cycling_window=cycling_window
+        )
 
         # Update cache
         self.update_cycling_cache(objectives)
@@ -208,7 +160,7 @@ class CyclingCriterion:
         # Clean up cache
         self.clean_cycling_cache()
 
-        return is_cycling
+        return status
 
 
 class ContactMechanicsCyclingCriterion(CyclingCriterion):
@@ -225,16 +177,16 @@ class ContactMechanicsCyclingCriterion(CyclingCriterion):
         if "displacement_jump" not in self.cached_objectives["continuous"]:
             self.cached_objectives["continuous"]["displacement_jump"] = []
 
-    def fetch_cycling_objectives(self, model) -> dict[str, dict[str, np.ndarray]]:
+    def fetch_cycling_objectives(self) -> dict[str, dict[str, np.ndarray]]:
         """Auxiliary function to fetch relevant objectives."""
-        contact_states = model.compute_fracture_states()
+        contact_states = self.model.compute_fracture_states()
 
-        subdomains = model.mdg.subdomains(dim=model.nd - 1)
-        contact_traction = model.equation_system.evaluate(
-            model.contact_traction(subdomains)
+        subdomains = self.model.mdg.subdomains(dim=self.model.nd - 1)
+        contact_traction = self.model.equation_system.evaluate(
+            self.model.contact_traction(subdomains)
         )
-        displacement_jump = model.equation_system.evaluate(
-            model.displacement_jump(subdomains)
+        displacement_jump = self.model.equation_system.evaluate(
+            self.model.displacement_jump(subdomains)
         )
         return {
             "discrete": {
