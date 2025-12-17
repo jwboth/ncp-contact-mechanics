@@ -6,7 +6,6 @@ logger = logging.getLogger(__name__)
 import numpy as np
 
 import ncp
-import porepy as pp
 
 
 class EuclideanConvergenceMetrics:
