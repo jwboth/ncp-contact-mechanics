@@ -4,6 +4,7 @@ from porepy.numerics.nonlinear.convergence_check import (
     ConvergenceStatus,
     DivergenceCriterion,
 )
+from porepy.viz.solver_statistics import NonlinearSolverStatistics
 from abc import abstractmethod
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,10 @@ class CyclingCriterion(DivergenceCriterion):
 
         """
 
-        assert self.model.nonlinear_solver_statistics is not None
+        assert isinstance(
+            self.model.nonlinear_solver_statistics,
+            NonlinearSolverStatistics,
+        )
 
         # Restart analysis if first iteration.
         if self.model.nonlinear_solver_statistics.num_iteration == 0:
