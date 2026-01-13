@@ -132,6 +132,13 @@ class FractureStates:
         yield_criterion = self.friction_bound(subdomains) - f_norm(t_t)
         yield_criterion_eval = self.equation_system.evaluate(yield_criterion)
 
+        # Determine tangential slip velocity to decide: stick vs slip.
+        u_t_increment: pp.ad.Operator = pp.ad.time_increment(
+            self.tangential_component(subdomains) @ self.displacement_jump(subdomains)
+        )
+        u_t_increment_eval = self.equation_system.evaluate(u_t_increment)
+        norm_u_t_increment_eval = np.linalg.norm(u_t_increment_eval, axis=0)
+
         # Determine the state of each fracture cell. Check the normal traction and the yield
         # criterion. Use consistent tolerance as in the equations to discuss boundary cases.
         tol = self.numerical.open_state_tolerance
@@ -139,6 +146,8 @@ class FractureStates:
             if tn_val >= -tol:
                 states.append(FractureState.OPEN)
             elif yc_val > tol:
+                states.append(FractureState.STICK)
+            elif yc_val <= tol and norm_u_t_increment_eval < tol:
                 states.append(FractureState.STICK)
             elif yc_val <= tol:
                 states.append(FractureState.SLIP)
