@@ -3,6 +3,10 @@ from functools import partial
 import numpy as np
 import porepy as pp
 from abc import abstractmethod
+import ncp
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ScaledRadialReturnTangentialContact:
@@ -56,6 +60,21 @@ class ScaledRadialReturnTangentialContact:
             ),
             "characteristic_function_for_zero_normal_traction",
         )
+        f_isclose_times_identity = pp.ad.Function(
+            partial(
+                ncp.isclose_times_identity,
+                self.numerical.open_state_tolerance,
+                0,
+            ),
+            "isclose_characteristic_times_identity_function",
+        )
+        f_gt_times_identity = pp.ad.Function(
+            partial(
+                ncp.gt_times_identity,
+                self.numerical.open_state_tolerance,
+            ),
+            "greater_than_characteristic_times_identity_function",
+        )
 
         # Augment the traction.
         c_num = scalar_to_tangential @ self.contact_mechanics_numerical_constant(
@@ -83,16 +102,13 @@ class ScaledRadialReturnTangentialContact:
             self.scaling_exponent_radial_return(subdomains) - pp.ad.Scalar(1.0)
         )
 
-        chi_open = f_characteristic(b_p)
-        chi_closed = pp.ad.Scalar(1.0) - chi_open
-
-        equation_open = t_t
-        equation_closed = (scalar_to_tangential @ t_t_scaling) * t_t - (
-            scalar_to_tangential @ t_t_trial_scaling
-        ) * t_t_trial
-        equation: pp.ad.Operator = (scalar_to_tangential @ chi_open) * equation_open + (
-            scalar_to_tangential @ chi_closed
-        ) * equation_closed
+        equation_open = f_isclose_times_identity(b_p, t_t)
+        equation_closed = f_gt_times_identity(
+            b_p,
+            (scalar_to_tangential @ t_t_scaling) * t_t
+            - (scalar_to_tangential @ t_t_trial_scaling) * t_t_trial,
+        )
+        equation: pp.ad.Operator = equation_open + equation_closed
         equation.set_name("tangential_fracture_deformation_equation")
         return equation
 
@@ -102,7 +118,9 @@ class ConstantScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCo
 
     def scaling_exponent_radial_return(self, subdomains) -> pp.ad.Operator:
         """Scaling exponent for the radial return projection."""
-        exponent = pp.ad.Scalar(self.params["contact"]["tangential_scaling_exponent"])
+        exponent = (
+            0.1  # pp.ad.Scalar(self.params["contact"]["tangential_scaling_exponent"])
+        )
         return exponent
 
 
@@ -111,11 +129,18 @@ class RandomScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCont
 
     def before_nonlinear_iteration(self) -> None:
         if not hasattr(self, "random_scaling_exponent"):
-            self.random_scaling_exponent = pp.ad.Scalar(1.0)
-
-        self.random_scaling_exponent.set_value(
-            np.clip(np.random.normal(0, 1) ** 2, None, 1.0)
-        )
+            self.random_scaling_exponent = pp.ad.Scalar(0.0)
+        if self.nonlinear_solver_statistics.num_iteration == 0:
+            random_value = 0.0
+        else:
+            rng = np.random.default_rng()
+            # random_value = np.clip(np.abs(rng.normal(0, 0.33)), None, 1.0)
+            # random_value = rng.uniform(0, 1.0)
+            # Normal distribution centered at 0.1
+            random_value = np.clip(np.abs(rng.normal(0.1, 0.1)), None, 1.0)
+            logger.info(f"New random scaling exponent: {random_value:.3f}")
+        self.random_scaling_exponent.set_value(random_value)
+        super().before_nonlinear_iteration()
 
     def solver_info(self) -> dict[str, float]:
         """Return solver info for logging."""
@@ -128,10 +153,7 @@ class RandomScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCont
     def scaling_exponent_radial_return(self, subdomains) -> pp.ad.Operator:
         """Scaling exponent for the radial return projection."""
         if not hasattr(self, "random_scaling_exponent"):
-            self.random_scaling_exponent = pp.ad.Scalar(
-                np.clip(np.random.normal(0, 1) ** 2, None, 1.0)
-            )
-
+            self.random_scaling_exponent = pp.ad.Scalar(0.0)
         return self.random_scaling_exponent
 
 
@@ -146,6 +168,13 @@ class DecayingScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCo
         # Some functions.
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        f_gt_times_identity = pp.ad.Function(
+            partial(
+                ncp.gt_times_identity,
+                self.numerical.open_state_tolerance,
+            ),
+            "greater_than_characteristic_times_identity_function",
+        )
 
         # Tangential component of the contact traction, and its norm.
         nd_vec_to_tangential = self.tangential_component(subdomains)
@@ -161,9 +190,8 @@ class DecayingScaledRadialReturnTangentialContact(ScaledRadialReturnTangentialCo
         # The zero limit is reached at roughly 2 times the friction bound.
         exponent = f_max(
             pp.ad.Scalar(1.0)
-            - pp.ad.Scalar(0.5)
-            * f_max(norm_t_t - b_p, zeros_frac)
-            / f_max(b_p, pp.ad.Scalar(self.numerical.open_state_tolerance)),
+            - pp.ad.Scalar(1 / 10)
+            * f_gt_times_identity(b_p, f_max(norm_t_t - b_p, zeros_frac) / b_p),
             pp.ad.Scalar(0.0),
         )
         # exponent = f_exp(-(f_max(norm_t_t - b_p, zeros_frac)))  # / (b_p**2))
