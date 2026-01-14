@@ -2,6 +2,7 @@ from functools import partial
 
 import numpy as np
 import porepy as pp
+import ncp
 
 
 class RadialReturnTangentialContact:
@@ -36,12 +37,12 @@ class RadialReturnTangentialContact:
         # Auxiliary functions.
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-        f_characteristic = pp.ad.Function(
+        f_gt_times_identity = pp.ad.Function(
             partial(
-                pp.ad.functions.characteristic_function,
+                ncp.gt_times_identity,
                 self.numerical.open_state_tolerance,
             ),
-            "characteristic_function_for_zero_normal_traction",
+            "greater_than_characteristic_times_identity_function",
         )
 
         # Augment the traction.
@@ -54,14 +55,7 @@ class RadialReturnTangentialContact:
         norm_t_t_trial = f_norm(t_t_trial)
         norm_t_t_trial.set_name("norm_t_t_trial")
 
-        # Determine characteristic function, when to apply projection.
-        # Only not close to the origin.
-        characteristic: pp.ad.Operator = pp.ad.Scalar(1.0) - f_characteristic(
-            norm_t_t_trial
-        )
-        characteristic.set_name("characteristic")
-
-        # Cut off negative values to avoid open state.
+        # Friction bound - cut off negative values to avoid open state.
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
 
@@ -69,12 +63,15 @@ class RadialReturnTangentialContact:
         # augmented traction.
         ones_frac = pp.ad.DenseArray(np.ones(num_cells))
         min_term = scalar_to_tangential @ (
-            -characteristic
-            * f_max(
-                pp.ad.Scalar(-1.0) * ones_frac,
-                pp.ad.Scalar(-1.0) * b_p / norm_t_t_trial,
+            f_gt_times_identity(
+                norm_t_t_trial,
+                -f_max(
+                    pp.ad.Scalar(-1.0) * ones_frac,
+                    pp.ad.Scalar(-1.0) * b_p / norm_t_t_trial,
+                ),
             )
         )
         equation: pp.ad.Operator = t_t - min_term * t_t_trial
         equation.set_name("tangential_fracture_deformation_equation")
+
         return equation
