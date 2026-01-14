@@ -30,6 +30,76 @@ def sign(var: FloatType) -> FloatType:
         return np.sign(var)
 
 
+def isclose_times_identity(
+    tol: float, ref_var: FloatType, char_var: FloatType, var: FloatType
+) -> FloatType:
+    """Characteristic function of an ad variable times the variable itself.
+
+    Returns ``var.val`` if it is within absolute tolerance = ``tol`` of zero,
+    otherwise returns zero. The derivative is set to zero independent of ``var.val``.
+
+    Note:
+        See module level documentation on how to wrap functions like this in
+        ``ad.Function``.
+
+    Parameters:
+        tol: Absolute tolerance for comparison with 0 using np.isclose.
+        var: Ad operator (variable or expression).
+
+    Returns:
+        The characteristic function of var with appropriate val and jac attributes.
+
+    """
+    ref_val = ref_var.val if isinstance(ref_var, AdArray) else ref_var
+    char_val = char_var.val if isinstance(char_var, AdArray) else char_var
+    char_inds = np.isclose(char_val, ref_val, atol=tol)
+    if not isinstance(var, AdArray):
+        if isinstance(var, np.ndarray):
+            vals = var.copy()
+            vals[~char_inds] = 0.0
+            return vals
+        else:
+            return char_inds.astype(float) * var
+    vals = var.val.copy()
+    vals[~char_inds] = 0.0
+    jac = var.jac.copy()
+    pp.matrix_operations.zero_rows(jac, np.where(~char_inds)[0])
+    return AdArray(vals, jac)
+
+
+def gt_times_identity(tol: float, char_var: FloatType, var: FloatType) -> FloatType:
+    """Characteristic function of an ad variable times the variable itself.
+
+    Returns ``var.val`` if it is within absolute tolerance = ``tol`` of zero,
+    otherwise returns zero. The derivative is set to zero independent of ``var.val``.
+
+    Note:
+        See module level documentation on how to wrap functions like this in
+        ``ad.Function``.
+
+    Parameters:
+        tol: Absolute tolerance for comparison with 0 using np.isclose.
+        var: Ad operator (variable or expression).
+
+    Returns:
+        The characteristic function of var with appropriate val and jac attributes.
+
+    """
+    char_inds = (char_var.val if isinstance(char_var, AdArray) else char_var) > tol
+    if not isinstance(var, AdArray):
+        if isinstance(var, np.ndarray):
+            vals = var.copy()
+            vals[~char_inds] = 0.0
+            return vals
+        else:
+            return char_inds.astype(float) * var
+    vals = var.val.copy()
+    vals[~char_inds] = 0.0
+    jac = var.jac.copy()
+    pp.matrix_operations.zero_rows(jac, np.where(~char_inds)[0])
+    return AdArray(vals, jac)
+
+
 def log_reg(var: FloatType) -> FloatType:
     if isinstance(var, AdArray):
         mask = np.abs(var.val) < 1
