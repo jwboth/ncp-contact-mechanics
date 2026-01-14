@@ -274,6 +274,7 @@ class ContactConfig:
         model_params["contact"] = {}
         for key in ["normal_formulation", "tangential_formulation"]:
             if key not in config.get("contact", {}):
-                raise KeyError(f"Missing contact.{key} in configuration.")
+                raise KeyError(f"Missing {key} in [contact] configuration.")
             model_params["contact"][key] = config["contact"][key]
+
         return model_params
