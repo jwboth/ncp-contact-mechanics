@@ -272,6 +272,15 @@ class NCP_MIN_TangentialContact(NCP_TangentialContact):
         return ncp.min(yield_criterion, colinearity)
 
 
+class NCP_MIN_MU_TangentialContact(NCP_TangentialContact):
+    """NCP formulation for tangential contact using the MIN function."""
+
+    def tangential_ncp_function(self, yield_criterion, colinearity) -> pp.ad.Operator:
+        """Return the NCP function for tangential contact."""
+        mu = self.params["contact"].get("ncp-regularization", 1e-5)
+        return ncp.min(yield_criterion, colinearity, mu=mu)
+
+
 class NCP_FB_TangentialContact(NCP_TangentialContact):
     """NCP formulation for tangential contact using the FB function."""
 
