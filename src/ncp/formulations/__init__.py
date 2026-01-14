@@ -1,6 +1,9 @@
 from .contact_mechanics_ncp import NCP_MIN_NormalContact, NCP_FB_NormalContact
 from .contact_mechanics_ncp import NCP_MIN_MU_NormalContact, NCP_FB_MU_NormalContact
 from .contact_mechanics_ncp import NCP_MIN_TangentialContact, NCP_FB_TangentialContact
+from .contact_mechanics_ncp import (
+    NCP_MIN_MU_TangentialContact,
+)  # , NCP_FB_MU_TangentialContact
 from .contact_mechanics_radial_return import (
     RadialReturnTangentialContact,
 )
