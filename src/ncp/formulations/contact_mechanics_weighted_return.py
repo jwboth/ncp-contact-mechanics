@@ -2,6 +2,9 @@ import porepy as pp
 from functools import partial
 import numpy as np
 from abc import abstractmethod
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class WeightedReturnContact:
@@ -290,7 +293,9 @@ class RandomWeightedReturnContact(WeightedReturnContact):
             self.random_weight_return_map = pp.ad.Scalar(
                 1.0, "random_weight_return_map"
             )
-        self.random_weight_return_map.set_value(np.random.uniform(0, 1))
+        random_value = np.random.uniform(0, 1)
+        self.random_weight_return_map.set_value(random_value)
+        logger.info(f"New random weight return map: {random_value:.3f}")
 
     def solver_info(self) -> dict[str, float]:
         """Return solver info for logging."""
@@ -304,6 +309,6 @@ class RandomWeightedReturnContact(WeightedReturnContact):
         """Return the weight for the weighted return map."""
         if not hasattr(self, "random_weight_return_map"):
             self.random_weight_return_map = pp.ad.Scalar(
-                np.random.uniform(0, 1), "random_weight_return_map"
+                1.0, "random_weight_return_map"
             )
         return self.random_weight_return_map
