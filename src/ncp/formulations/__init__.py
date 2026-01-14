@@ -25,5 +25,5 @@ from .contact_mechanics_scaled_normal_projection import (
     DecayingScaledAlartCurnier_NormalContact,
 )
 
-# from .contact_mechanics_soccp import SOCCPContactMechanics
+from .contact_mechanics_soccp import SOCCPContactMechanics
 from .utils import add_contact_mechanics
