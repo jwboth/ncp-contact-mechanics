@@ -143,13 +143,13 @@ class CyclingCriterion(DivergenceCriterion):
                 )
             ):
                 cycling_window = self.num_cached_objectives - i
-                logger.info(f"Cycling detected with window {cycling_window}.")
                 break
 
-        # Conclude.
+        # Conclude. Exclude cycling if only a single iteration cycle detected.
+        # This is interpreted as stagnation rather than cycling.
         status = (
             ConvergenceStatus.CYCLED
-            if cycling_window > 0
+            if cycling_window >= 2
             else ConvergenceStatus.CONVERGED
         )
 
@@ -163,6 +163,12 @@ class CyclingCriterion(DivergenceCriterion):
 
         # Clean up cache
         self.clean_cycling_cache()
+
+        # Write message about triggered cycling
+        if status == ConvergenceStatus.CYCLED:
+            logger.error(
+                f"\033[31mCycling detected with window {cycling_window}.\033[0m"
+            )
 
         return status
 
