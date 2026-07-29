@@ -182,10 +182,10 @@ class FractureStates:
         discrete_fracture_states = self._compute_fracture_states(subdomains)
         cell_volumes = np.concatenate([sd.cell_volumes for sd in subdomains])
         area_fracture_states = {
-            state.name: float(np.sum(cell_volumes[discrete_fracture_states == state]))
+            state.name: f"{float(np.sum(cell_volumes[discrete_fracture_states == state])):.1e}"
             for state in FractureState
         }
-        area_fracture_states["total"] = float(np.sum(cell_volumes))
+        area_fracture_states["total"] = f"{float(np.sum(cell_volumes)):.1e}"
         return area_fracture_states
 
     def num_fracture_states_diff(self, fracture_states_1, fracture_states_2) -> int:
@@ -233,7 +233,7 @@ class FractureStates:
         fracture_states = self.compute_fracture_states()
         if (
             not hasattr(self, "previous_timestep_fracture_states")
-            or self.nonlinear_solver_statistics.num_iteration == 0
+            or self.nonlinear_solver_statistics.num_iterations == 0
         ):
             self.previous_timestep_fracture_states = fracture_states.copy()
         num_fracture_states_diff_in_time = self.num_fracture_states_diff(
@@ -261,13 +261,13 @@ class FractureStates:
         logger.info(f"Area of fracture states: {area_fracture_states}")
         logger.info(f"Number changes in time: {num_fracture_states_diff_in_time}")
         logger.info(
-            f"Area of changing fracture states in time: {area_fracture_states_diff_in_time}"
+            f"Area of changing fracture states in time: {area_fracture_states_diff_in_time:.1e}"
         )
         logger.info(
             f"Number changes in iteration: {num_fracture_states_diff_in_iteration}"
         )
         logger.info(
-            f"Area of changing fracture states in iteration: {area_fracture_states_diff_in_iteration}"
+            f"Area of changing fracture states in iteration: {area_fracture_states_diff_in_iteration:.1e}"
         )
 
         # Solver statistics logging - differentiated between non-fixed and fixed for

@@ -115,7 +115,7 @@ class RandomScaledAlartCurnier_NormalContact(ScaledAlartCurnier_NormalContact):
     def before_nonlinear_iteration(self) -> None:
         if not hasattr(self, "random_scaling_exponent_alart_curnier_normal"):
             self.random_scaling_exponent_alart_curnier_normal = pp.ad.Scalar(0.0)
-        if self.nonlinear_solver_statistics.num_iteration == 0:
+        if self.nonlinear_solver_statistics.num_iterations == 0:
             random_value = 0.0
         else:
             # random_value = np.clip(np.abs(np.random.normal(0, 0.33)), None, 1.0)

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AdvancedSolverStatistics(pp.SolverStatistics):
-    cache_num_iteration: list[int] = field(default_factory=list)
+    cache_num_iterations: list[int] = field(default_factory=list)
     """Cached number of non-linear iterations performed until current time step."""
     cache_nonlinear_increment_norms: list[list[float]] = field(default_factory=list)
     """Cached list of increment magnitudes for each non-linear iteration."""
@@ -39,7 +39,7 @@ class AdvancedSolverStatistics(pp.SolverStatistics):
 
     def cache(self) -> None:
         """Cache the statistics object."""
-        self.cache_num_iteration.append(self.num_iteration)
+        self.cache_num_iterations.append(self.num_iterations)
         self.cache_nonlinear_increment_norms.append(self.nonlinear_increment_norms)
         self.cache_residual_norms.append(self.residual_norms)
 
@@ -88,7 +88,7 @@ class AdvancedSolverStatistics(pp.SolverStatistics):
         }
         self.data[self.time_index] = {
             "status": self.status,
-            "num_iteration": self.num_iteration,
+            "num_iterations": self.num_iterations,
             "nonlinear_increment_norms": copy(self.nonlinear_increment_norms),
             "residual_norms": copy(self.residual_norms),
             "contact_state_changes": copy(self.cache_contact_state_changes),
@@ -255,7 +255,7 @@ class LogPerformanceData:
             residual_norm = self.compute_residual_norm(residual)
 
             # Cache first solution and residual for reference
-            if self.nonlinear_solver_statistics.num_iteration == 1:
+            if self.nonlinear_solver_statistics.num_iterations == 1:
                 reference_solution = self.equation_system.get_variable_values(
                     iterate_index=0
                 )
@@ -282,7 +282,7 @@ class LogPerformanceData:
             )
             converged = False
             # Check convergence requiring both the increment and residual to be small.
-            if not converged and self.nonlinear_solver_statistics.num_iteration > 1:
+            if not converged and self.nonlinear_solver_statistics.num_iterations > 1:
                 if not np.isnan(nl_params["nl_convergence_tol"]) and not np.isnan(
                     nl_params["nl_convergence_tol_rel"]
                 ):
@@ -329,7 +329,7 @@ class LogPerformanceData:
                 converged = converged_inc and converged_res
 
             # Allow small residuals to be considered converged.
-            if not converged and self.nonlinear_solver_statistics.num_iteration > 1:
+            if not converged and self.nonlinear_solver_statistics.num_iterations > 1:
                 if not np.isnan(
                     nl_params["nl_convergence_tol_res_tight"]
                 ) and not np.isnan(nl_params["nl_convergence_tol_res_rel_tight"]):
@@ -351,7 +351,7 @@ class LogPerformanceData:
                     )
 
             # Allow small increments to be considered converged.
-            if not converged and self.nonlinear_solver_statistics.num_iteration > 1:
+            if not converged and self.nonlinear_solver_statistics.num_iterations > 1:
                 if not np.isnan(nl_params["nl_convergence_tol_tight"]) and not np.isnan(
                     nl_params["nl_convergence_tol_rel_tight"]
                 ):
@@ -373,7 +373,7 @@ class LogPerformanceData:
                     )
 
             # Allow nan residuals to be considered converged.
-            if not converged and self.nonlinear_solver_statistics.num_iteration > 1:
+            if not converged and self.nonlinear_solver_statistics.num_iterations > 1:
                 if np.isnan(residual_norm) or np.isnan(self.reference_residual_norm):
                     if not np.isnan(
                         nl_params["nl_convergence_tol_tight"]
@@ -548,7 +548,7 @@ class LogPerformanceDataVectorial(LogPerformanceData):
         )
 
         # Cache first solution as reference for relative increment norms
-        if self.nonlinear_solver_statistics.num_iteration == 1:
+        if self.nonlinear_solver_statistics.num_iterations == 1:
             self.fixed_reference_nonlinear_increment_norms = [
                 False for _ in nonlinear_increment_norms
             ]
@@ -575,7 +575,7 @@ class LogPerformanceDataVectorial(LogPerformanceData):
         residual_norms = self.compute_residual_norm(None, split=True)
 
         # Cache first non-zero residual as reference for relative residual norms
-        if self.nonlinear_solver_statistics.num_iteration == 1:
+        if self.nonlinear_solver_statistics.num_iterations == 1:
             self.fixed_reference_residual_norms = [False for _ in residual_norms]
             self.reference_residual_norms = [1.0 for _ in residual_norms]
         for i, fixed_reference in enumerate(self.fixed_reference_residual_norms):
@@ -629,7 +629,7 @@ class LogPerformanceDataVectorial(LogPerformanceData):
             return converged, diverged
 
         # Check convergence requiring both the increment and residual to be small.
-        if not converged and self.nonlinear_solver_statistics.num_iteration > 1:
+        if not converged and self.nonlinear_solver_statistics.num_iterations > 1:
             converged_inc = self._tolerance_check(
                 nonlinear_increment_norms,
                 self.reference_nonlinear_increment_norms,
@@ -647,7 +647,7 @@ class LogPerformanceDataVectorial(LogPerformanceData):
                 print("Converged with both increments and residuals.")
 
         # Allow small increments to be considered converged.
-        if not converged and self.nonlinear_solver_statistics.num_iteration > 1:
+        if not converged and self.nonlinear_solver_statistics.num_iterations > 1:
             converged = self._tolerance_check(
                 nonlinear_increment_norms,
                 self.reference_nonlinear_increment_norms,
@@ -658,7 +658,7 @@ class LogPerformanceDataVectorial(LogPerformanceData):
                 print("Converged with increments.")
 
         # Allow small residuals to be considered converged.
-        if not converged and self.nonlinear_solver_statistics.num_iteration > 1:
+        if not converged and self.nonlinear_solver_statistics.num_iterations > 1:
             converged = self._tolerance_check(
                 residual_norms,
                 self.reference_residual_norms,

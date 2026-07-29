@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from porepy.numerics.nonlinear.convergence_check import (
+from porepy.numerics.solvers.convergence_check import (
     ConvergenceStatus,
     DivergenceCriterion,
 )
@@ -87,7 +87,7 @@ class CyclingCriterion(DivergenceCriterion):
         )
 
         # Restart analysis if first iteration.
-        if self.model.nonlinear_solver_statistics.num_iteration == 0:
+        if self.model.nonlinear_solver_statistics.num_iterations == 0:
             self.reset_cycling_analysis()
 
         # Initialize state.
@@ -148,7 +148,7 @@ class CyclingCriterion(DivergenceCriterion):
         # Conclude. Exclude cycling if only a single iteration cycle detected.
         # This is interpreted as stagnation rather than cycling.
         status = (
-            ConvergenceStatus.CYCLED
+            ConvergenceStatus.FAILED
             if cycling_window >= 2
             else ConvergenceStatus.CONVERGED
         )
@@ -165,7 +165,7 @@ class CyclingCriterion(DivergenceCriterion):
         self.clean_cycling_cache()
 
         # Write message about triggered cycling
-        if status == ConvergenceStatus.CYCLED:
+        if status == ConvergenceStatus.FAILED:
             logger.error(
                 f"\033[31mCycling detected with window {cycling_window}.\033[0m"
             )

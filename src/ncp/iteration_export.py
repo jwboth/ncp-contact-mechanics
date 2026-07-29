@@ -6,8 +6,7 @@ from functools import partial
 
 import numpy as np
 import porepy as pp
-from typing import Any
-from porepy.numerics.nonlinear.convergence_check import ConvergenceStatus
+from porepy.numerics.solvers.convergence_check import ConvergenceStatus
 
 logger = logging.getLogger(__name__)
 
