@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 class CyclingCriterion(DivergenceCriterion):
     """Implements a check for cycling."""
 
-    def __init__(self, model):
+    def __init__(self, model, tol):
         self.model = model
+        self.tol = tol
 
     @abstractmethod
     def fetch_cycling_objectives(self) -> dict[str, dict[str, np.ndarray]]:
@@ -104,18 +105,28 @@ class CyclingCriterion(DivergenceCriterion):
             if (
                 all(
                     [
-                        np.all(
-                            objectives["discrete"][key]
-                            == self.cached_objectives["discrete"][key][i]
+                        np.isclose(
+                            np.sum(
+                                np.abs(
+                                    objectives["discrete"][key]
+                                    - self.cached_objectives["discrete"][key][i]
+                                )
+                            ),
+                            0,
                         )
                         for key in objectives["discrete"]
                     ]
                 )
                 and all(
                     [
-                        np.all(
-                            self.cached_objectives["discrete"][key][-1]
-                            == self.cached_objectives["discrete"][key][i - 1]
+                        np.isclose(
+                            np.sum(
+                                np.abs(
+                                    self.cached_objectives["discrete"][key][-1]
+                                    - self.cached_objectives["discrete"][key][i - 1]
+                                )
+                            ),
+                            0,
                         )
                         for key in self.cached_objectives["discrete"]
                     ]
@@ -123,21 +134,22 @@ class CyclingCriterion(DivergenceCriterion):
                 # TODO: Need both checks?
                 and all(
                     [
-                        np.allclose(
-                            objectives["continuous"][key],
-                            self.cached_objectives["continuous"][key][i],
-                            rtol=1e-2,
+                        np.linalg.norm(
+                            objectives["continuous"][key]
+                            - self.cached_objectives["continuous"][key][i]
                         )
+                        < self.tol * np.linalg.norm(objectives["continuous"][key])
                         for key in objectives["continuous"]
                     ]
                 )
                 and all(
                     [
-                        np.allclose(
-                            self.cached_objectives["continuous"][key][-1],
-                            self.cached_objectives["continuous"][key][i - 1],
-                            rtol=1e-2,
+                        np.linalg.norm(
+                            self.cached_objectives["continuous"][key][-1]
+                            - self.cached_objectives["continuous"][key][i - 1]
                         )
+                        < self.tol
+                        * np.linalg.norm(self.cached_objectives["continuous"][key][-1])
                         for key in self.cached_objectives["continuous"]
                     ]
                 )
@@ -145,11 +157,13 @@ class CyclingCriterion(DivergenceCriterion):
                 cycling_window = self.num_cached_objectives - i
                 break
 
-        # Conclude. Exclude cycling if only a single iteration cycle detected.
-        # This is interpreted as stagnation rather than cycling.
+        # Conclude.
+        # NOTE: This will be most likely triggered in the state of convergence.
+        # But since convergence trumps over divergence in overall check (assumed),
+        # we can safely return a failed status here.
         status = (
             ConvergenceStatus.FAILED
-            if cycling_window >= 2
+            if cycling_window >= 1
             else ConvergenceStatus.CONVERGED
         )
 
