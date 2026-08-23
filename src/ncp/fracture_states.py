@@ -182,10 +182,12 @@ class FractureStates:
         discrete_fracture_states = self._compute_fracture_states(subdomains)
         cell_volumes = np.concatenate([sd.cell_volumes for sd in subdomains])
         area_fracture_states = {
-            state.name: f"{float(np.sum(cell_volumes[discrete_fracture_states == state])):.1e}"
+            state.name: float(
+                f"{float(np.sum(cell_volumes[discrete_fracture_states == state])):.1e}"
+            )
             for state in FractureState
         }
-        area_fracture_states["total"] = f"{float(np.sum(cell_volumes)):.1e}"
+        area_fracture_states["total"] = float(f"{float(np.sum(cell_volumes)):.1e}")
         return area_fracture_states
 
     def num_fracture_states_diff(self, fracture_states_1, fracture_states_2) -> int:
@@ -216,9 +218,14 @@ class FractureStates:
         """
         subdomains = self.mdg.subdomains(dim=self.nd - 1)
         cell_volumes = np.concatenate([sd.cell_volumes for sd in subdomains])
-        return np.sum(
-            (fracture_states_1 != fracture_states_2).astype(int) * cell_volumes
-        )
+        return float(f"{
+                (
+                    np.sum(
+                        (fracture_states_1 != fracture_states_2).astype(int)
+                        * cell_volumes
+                    )
+                ):.1e
+            }")
 
     def log_fracture_state_statistics(self):
         """Monitor objectives."""
