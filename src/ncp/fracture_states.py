@@ -218,14 +218,10 @@ class FractureStates:
         """
         subdomains = self.mdg.subdomains(dim=self.nd - 1)
         cell_volumes = np.concatenate([sd.cell_volumes for sd in subdomains])
-        return float(f"{
-                (
-                    np.sum(
-                        (fracture_states_1 != fracture_states_2).astype(int)
-                        * cell_volumes
-                    )
-                ):.1e
-            }")
+        diff_volume = np.sum(
+            (fracture_states_1 != fracture_states_2).astype(int) * cell_volumes
+        )
+        return float(f"{diff_volume:.1e}")
 
     def log_fracture_state_statistics(self):
         """Monitor objectives."""
